@@ -62,7 +62,7 @@ public class NurseService : StatusGenericHandler, INurseService
 
     public async Task<NurseDto?> GetByIdAsync(int id, CancellationToken ct = default)
     {
-        var nurse = await _uow.Nurses.GetByIdAsync(id, ct);
+        var nurse = await _uow.Nurses.GetByIdAsync(id, ct);    
         if (nurse is null)
         {
             AddError($"{nameof(Nurse)} (Id={id}) topilmadi.");
