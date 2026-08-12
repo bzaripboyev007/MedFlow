@@ -8,5 +8,5 @@ namespace MedFlow.Application.Common.Interfaces;
 public interface IFileStorageService
 {
     Task<string> SaveAsync(Stream content, string fileName, string contentType, CancellationToken ct = default);
-    string GetUrl(string storageKey); 
+    string GetUrl(string storageKey);     
 }
