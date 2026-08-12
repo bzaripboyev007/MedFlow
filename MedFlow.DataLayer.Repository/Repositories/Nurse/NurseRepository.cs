@@ -6,7 +6,7 @@ namespace MedFlow.DataLayer.Repository.Repositories.Nurse;
 
 public class NurseRepository : BaseEntityRepository<Domain.Entities.Nurse, int>, INurseRepository
 {
-    public NurseRepository(MedFlowDbContext context) : base(context)
+    public NurseRepository(MedFlowDbContext context) : base(context) 
     {
     }
 }
