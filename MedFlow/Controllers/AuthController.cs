@@ -39,7 +39,7 @@ public class AuthController : ApiControllerBase
         return FromStatus(result, _auth);
     }
 
-    [HttpPost]
+    [HttpPost] 
     public async Task<ActionResult<AuthResultDto>> Refresh([FromBody] RefreshRequest request, CancellationToken ct)
     {
         var result = await _auth.RefreshAsync(request, ct);
