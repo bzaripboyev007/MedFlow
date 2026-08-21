@@ -52,6 +52,7 @@ public class AuthService : StatusGenericHandler, IAuthService
             Role = UserRole.Patient,
             FullName = request.FullName,
             PhoneNumber = request.PhoneNumber,
+            Password = request.Password,
             PasswordHash = _passwordHasher.Hash(request.Password),
             LinkedPatientId = patient.Id,
             CreatedAt = DateTimeOffset.UtcNow
@@ -82,6 +83,7 @@ public class AuthService : StatusGenericHandler, IAuthService
             Role = UserRole.Admin,
             FullName = request.FullName,
             PhoneNumber = request.PhoneNumber,
+            Password = request.Password,
             PasswordHash = _passwordHasher.Hash(request.Password),
             CreatedAt = DateTimeOffset.UtcNow
         };
