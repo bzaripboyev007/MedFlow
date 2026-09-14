@@ -1,5 +1,7 @@
 using MedFlow.Application.Common;
 using MedFlow.Application.Common.Interfaces;
+using MedFlow.Application.MedFlowServis.OtpServices;
+using MedFlow.Application.MedFlowServis.OtpServices.Concrete;
 using MedFlow.Domain.Entities;
 using MedFlow.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -12,17 +14,32 @@ public class AuthService : StatusGenericHandler, IAuthService
     private readonly IUnitOfWork _uow;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IOtpService _otpService;
 
-    public AuthService(IUnitOfWork uow, IPasswordHasher passwordHasher, IJwtTokenService jwtTokenService)
+    public AuthService(
+        IUnitOfWork uow,
+        IPasswordHasher passwordHasher,
+        IJwtTokenService jwtTokenService,
+        IOtpService otpService)
     {
         _uow = uow;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
+        _otpService = otpService;
     }
 
     public async Task<AuthResultDto?> RegisterPatientAsync(RegisterPatientRequest request, CancellationToken ct = default)
     {
-        if (await _uow.Users.Query().AnyAsync(u => u.PhoneNumber == request.PhoneNumber, ct))
+        var phoneNumber = request.PhoneNumber.Trim();
+
+        var verifiedViaTelegram = await _otpService.IsRecentlyVerifiedAsync(phoneNumber, ct);
+        if (!verifiedViaTelegram)
+        {
+            AddError("Iltimos, avval telefon raqamingizni Telegram-kod orqali tasdiqlang.");
+            return null;
+        }
+
+        if (await _uow.Users.Query().AnyAsync(u => u.PhoneNumber == phoneNumber, ct))
         {
             AddError("Bu telefon raqami bilan foydalanuvchi allaqachon ro'yxatdan o'tgan.");
             return null;
@@ -38,7 +55,7 @@ public class AuthService : StatusGenericHandler, IAuthService
         {
             FullName = request.FullName,
             BirthDate = request.BirthDate,
-            Phone = request.PhoneNumber,
+            Phone = phoneNumber,
             ParentId = request.ParentId,
             IsChild = request.IsChild,
             Allergies = request.Allergies,
@@ -51,8 +68,7 @@ public class AuthService : StatusGenericHandler, IAuthService
         {
             Role = UserRole.Patient,
             FullName = request.FullName,
-            PhoneNumber = request.PhoneNumber,
-            Password = request.Password,
+            PhoneNumber = phoneNumber,
             PasswordHash = _passwordHasher.Hash(request.Password),
             LinkedPatientId = patient.Id,
             CreatedAt = DateTimeOffset.UtcNow
@@ -72,7 +88,9 @@ public class AuthService : StatusGenericHandler, IAuthService
             return null;
         }
 
-        if (await _uow.Users.Query().AnyAsync(u => u.PhoneNumber == request.PhoneNumber, ct))
+        var phoneNumber = request.PhoneNumber.Trim();
+
+        if (await _uow.Users.Query().AnyAsync(u => u.PhoneNumber == phoneNumber, ct))
         {
             AddError("Bu telefon raqami bilan foydalanuvchi allaqachon ro'yxatdan o'tgan.");
             return null;
@@ -82,8 +100,7 @@ public class AuthService : StatusGenericHandler, IAuthService
         {
             Role = UserRole.Admin,
             FullName = request.FullName,
-            PhoneNumber = request.PhoneNumber,
-            Password = request.Password,
+            PhoneNumber = phoneNumber,
             PasswordHash = _passwordHasher.Hash(request.Password),
             CreatedAt = DateTimeOffset.UtcNow
         };
@@ -95,7 +112,8 @@ public class AuthService : StatusGenericHandler, IAuthService
 
     public async Task<AuthResultDto?> LoginAsync(LoginRequest request, CancellationToken ct = default)
     {
-        var user = await _uow.Users.Query().FirstOrDefaultAsync(u => u.PhoneNumber == request.PhoneNumber, ct);
+        var phoneNumber = request.PhoneNumber.Trim();
+        var user = await _uow.Users.Query().FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber, ct);
         if (user is null)
         {
             AddError("Login yoki parol xato.");
@@ -159,6 +177,65 @@ public class AuthService : StatusGenericHandler, IAuthService
         await _uow.SaveChangesAsync(ct);
 
         return await IssueTokensAsync(user, ct);
+    }
+
+    public async Task<OtpResultDto?> SendOtpAsync(SendOtpRequest request, CancellationToken ct = default)
+    {
+        var ok = await _otpService.SendOtpAsync(request, ct);
+        if (!ok)
+        {
+            CopyErrorsFrom(_otpService);
+            return null;
+        }
+
+        return new OtpResultDto { Success = true };
+    }
+
+    public async Task<OtpResultDto?> VerifyOtpAsync(VerifyOtpRequest request, CancellationToken ct = default)
+    {
+        var ok = await _otpService.VerifyOtpAsync(request, ct);
+        if (!ok)
+        {
+            CopyErrorsFrom(_otpService);
+            return null;
+        }
+
+        return new OtpResultDto { Success = true };
+    }
+
+    public async Task<AuthResultDto?> ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct = default)
+    {
+        var phoneNumber = request.PhoneNumber.Trim();
+
+        var verifiedViaTelegram = await _otpService.IsRecentlyVerifiedAsync(phoneNumber, ct);
+        if (!verifiedViaTelegram)
+        {
+            AddError("Iltimos, avval telefon raqamingizni Telegram-kod orqali tasdiqlang.");
+            return null;
+        }
+
+        var user = await _uow.Users.Query().FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber, ct);
+        if (user is null)
+        {
+            AddError("Bu telefon raqami bilan foydalanuvchi topilmadi.");
+            return null;
+        }
+
+        user.PasswordHash = _passwordHasher.Hash(request.NewPassword);
+        user.FailedLoginCount = 0;
+        user.LockedUntil = null;
+        _uow.Users.Update(user);
+        await _uow.SaveChangesAsync(ct);
+
+        return await IssueTokensAsync(user, ct);
+    }
+
+    private void CopyErrorsFrom(IStatusGeneric status)
+    {
+        foreach (var error in status.Errors)
+        {
+            AddError(error.ErrorResult.ErrorMessage ?? "Xatolik yuz berdi.");
+        }
     }
 
     private async Task<AuthResultDto> IssueTokensAsync(User user, CancellationToken ct)

@@ -7,4 +7,5 @@ public class UpdateNurseRequest
     public string Specialization { get; set; } = null!;
     public bool IsActive { get; set; }
     public decimal Rating { get; set; }
+    public decimal PricePerVisit { get; set; }
 }

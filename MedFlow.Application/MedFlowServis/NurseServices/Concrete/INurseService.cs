@@ -8,6 +8,9 @@ public interface INurseService : IStatusGeneric
     Task<NurseDto?> CreateAsync(CreateNurseRequest request, CancellationToken ct = default);
     Task<NurseDto?> GetByIdAsync(int id, CancellationToken ct = default);
     Task<List<NurseDto>> ListAsync(NurseType? type, Gender? gender, CancellationToken ct = default);
+
+    /// <summary>Bron sahifasi uchun faol hamshiralar ro'yxati (autentifikatsiyasiz ochiq).</summary>
+    Task<List<PublicNurseDto>> ListPublicAsync(NurseType? type, Gender? gender, CancellationToken ct = default);
     Task<NurseDto?> UpdateAsync(int id, UpdateNurseRequest request, CancellationToken ct = default);
     Task<List<BusySlotDto>> GetAvailabilityAsync(int nurseId, DateTime date, CancellationToken ct = default);
 }

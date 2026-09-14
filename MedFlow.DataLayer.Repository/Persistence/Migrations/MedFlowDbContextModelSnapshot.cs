@@ -22,6 +22,93 @@ namespace MedFlow.DataLayer.Repository.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("MedFlow.Domain.Entities.Booking", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(19)
+                        .HasColumnType("bigint")
+                        .HasColumnName("ID");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("ADDRESS");
+
+                    b.Property<string>("BookingDate")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("BOOKING_DATE");
+
+                    b.Property<string>("BookingTime")
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)")
+                        .HasColumnName("BOOKING_TIME");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("CREATED_AT");
+
+                    b.Property<string>("FullName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("FULL_NAME");
+
+                    b.Property<string>("Landmark")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("LANDMARK");
+
+                    b.Property<int>("NurseId")
+                        .HasPrecision(10)
+                        .HasColumnType("integer")
+                        .HasColumnName("NURSE_ID");
+
+                    b.Property<string>("PatientType")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("PATIENT_TYPE");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("PHONE");
+
+                    b.Property<string>("PrescriptionFile")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("PRESCRIPTION_FILE");
+
+                    b.Property<string>("PrescriptionUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("PRESCRIPTION_URL");
+
+                    b.Property<string>("ServiceType")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("SERVICE_TYPE");
+
+                    b.Property<string>("Status")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("STATUS");
+
+                    b.Property<decimal>("TotalPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("TOTAL_PRICE");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("NurseId", "BookingDate");
+
+                    b.ToTable("BOOKINGS", "CLINIC");
+                });
+
             modelBuilder.Entity("MedFlow.Domain.Entities.Medicine", b =>
                 {
                     b.Property<int>("Id")
@@ -165,6 +252,11 @@ namespace MedFlow.DataLayer.Repository.Persistence.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("PHONE");
 
+                    b.Property<decimal>("PricePerVisit")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("PRICE_PER_VISIT");
+
                     b.Property<decimal>("Rating")
                         .HasPrecision(3, 2)
                         .HasColumnType("numeric(3,2)")
@@ -185,6 +277,53 @@ namespace MedFlow.DataLayer.Repository.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("NURSES", "HRM");
+                });
+
+            modelBuilder.Entity("MedFlow.Domain.Entities.OtpCode", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(19)
+                        .HasColumnType("bigint")
+                        .HasColumnName("ID");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("ATTEMPT_COUNT");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("CODE");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("CREATED_AT");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("EXPIRES_AT");
+
+                    b.Property<bool>("IsUsed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("IS_USED");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("PHONE_NUMBER");
+
+                    b.Property<DateTimeOffset?>("VerifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("VERIFIED_AT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PhoneNumber", "CreatedAt");
+
+                    b.ToTable("OTP_CODES", "IDM");
                 });
 
             modelBuilder.Entity("MedFlow.Domain.Entities.Patient", b =>
@@ -512,6 +651,46 @@ namespace MedFlow.DataLayer.Repository.Persistence.Migrations
                     b.ToTable("SESSIONS", "CLINIC");
                 });
 
+            modelBuilder.Entity("MedFlow.Domain.Entities.TelegramLink", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasPrecision(19)
+                        .HasColumnType("bigint")
+                        .HasColumnName("ID");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("ChatId")
+                        .HasPrecision(19)
+                        .HasColumnType("bigint")
+                        .HasColumnName("CHAT_ID");
+
+                    b.Property<DateTimeOffset>("LinkedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("LINKED_AT");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("PHONE_NUMBER");
+
+                    b.Property<string>("TelegramUsername")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("TELEGRAM_USERNAME");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChatId")
+                        .IsUnique();
+
+                    b.HasIndex("PhoneNumber")
+                        .IsUnique();
+
+                    b.ToTable("TELEGRAM_LINKS", "IDM");
+                });
+
             modelBuilder.Entity("MedFlow.Domain.Entities.TreatmentCourse", b =>
                 {
                     b.Property<long>("Id")
@@ -637,11 +816,6 @@ namespace MedFlow.DataLayer.Repository.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("LOCKED_UNTIL");
 
-                    b.Property<string>("Password")
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
-                        .HasColumnName("PASSWORD");
-
                     b.Property<string>("PasswordHash")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
@@ -666,6 +840,17 @@ namespace MedFlow.DataLayer.Repository.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("USERS", "IDM");
+                });
+
+            modelBuilder.Entity("MedFlow.Domain.Entities.Booking", b =>
+                {
+                    b.HasOne("MedFlow.Domain.Entities.Nurse", "Nurse")
+                        .WithMany()
+                        .HasForeignKey("NurseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Nurse");
                 });
 
             modelBuilder.Entity("MedFlow.Domain.Entities.MedicineIssue", b =>

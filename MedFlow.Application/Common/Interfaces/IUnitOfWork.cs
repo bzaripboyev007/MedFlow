@@ -16,6 +16,9 @@ public interface IUnitOfWork
     IPaymentRepository Payments { get; }
     IUserRepository Users { get; }
     IRefreshTokenRepository RefreshTokens { get; }
+    ITelegramLinkRepository TelegramLinks { get; }
+    IOtpCodeRepository OtpCodes { get; }
+    IBookingRepository Bookings { get; }
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

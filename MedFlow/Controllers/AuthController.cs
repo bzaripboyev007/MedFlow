@@ -1,5 +1,6 @@
 using MedFlow.Application.MedFlowServis.AuthServices;
 using MedFlow.Application.MedFlowServis.AuthServices.Concrete;
+using MedFlow.Application.MedFlowServis.OtpServices;
 using MedFlow.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -39,10 +40,31 @@ public class AuthController : ApiControllerBase
         return FromStatus(result, _auth);
     }
 
-    [HttpPost] 
+    [HttpPost]
     public async Task<ActionResult<AuthResultDto>> Refresh([FromBody] RefreshRequest request, CancellationToken ct)
     {
         var result = await _auth.RefreshAsync(request, ct);
+        return FromStatus(result, _auth);
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<OtpResultDto>> SendOtp([FromBody] SendOtpRequest request, CancellationToken ct)
+    {
+        var result = await _auth.SendOtpAsync(request, ct);
+        return FromStatus(result, _auth);
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<OtpResultDto>> VerifyOtp([FromBody] VerifyOtpRequest request, CancellationToken ct)
+    {
+        var result = await _auth.VerifyOtpAsync(request, ct);
+        return FromStatus(result, _auth);
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<AuthResultDto>> ResetPassword([FromBody] ResetPasswordRequest request, CancellationToken ct)
+    {
+        var result = await _auth.ResetPasswordAsync(request, ct);
         return FromStatus(result, _auth);
     }
 }

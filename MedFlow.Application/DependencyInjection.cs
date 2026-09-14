@@ -1,9 +1,11 @@
 using AutoMapper;
 using MedFlow.Application.MedFlowServis.AuthServices.Concrete;
+using MedFlow.Application.MedFlowServis.BookingServices.Concrete;
 using MedFlow.Application.MedFlowServis.CourseServices.Concrete;
 using MedFlow.Application.MedFlowServis.NurseAssignmentServices.Concrete;
 using MedFlow.Application.MedFlowServis.NurseAvailabilityServices.Concrete;
 using MedFlow.Application.MedFlowServis.NurseServices.Concrete;
+using MedFlow.Application.MedFlowServis.OtpServices.Concrete;
 using MedFlow.Application.MedFlowServis.PatientServices.Concrete;
 using MedFlow.Application.MedFlowServis.PaymentServices.Concrete;
 using MedFlow.Application.MedFlowServis.PharmacyServices.Concrete;
@@ -31,6 +33,8 @@ public static class DependencyInjection
         services.AddScoped<IServiceTypeService, ServiceTypeService>();
         services.AddScoped<IPaymentService, PaymentService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IOtpService, OtpService>();
+        services.AddScoped<IBookingService, BookingService>();
 
         services.AddAutoMapper(typeof(DependencyInjection).Assembly);
 

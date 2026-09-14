@@ -20,6 +20,9 @@ public class UnitOfWork : IUnitOfWork
     private IPaymentRepository? _payments;
     private IUserRepository? _users;
     private IRefreshTokenRepository? _refreshTokens;
+    private ITelegramLinkRepository? _telegramLinks;
+    private IOtpCodeRepository? _otpCodes;
+    private IBookingRepository? _bookings;
 
     public UnitOfWork(MedFlowDbContext context)
     {
@@ -38,6 +41,9 @@ public class UnitOfWork : IUnitOfWork
     public IPaymentRepository Payments => _payments ??= new Repositories.Payment.PaymentRepository(_context);
     public IUserRepository Users => _users ??= new Repositories.User.UserRepository(_context);
     public IRefreshTokenRepository RefreshTokens => _refreshTokens ??= new Repositories.RefreshToken.RefreshTokenRepository(_context);
+    public ITelegramLinkRepository TelegramLinks => _telegramLinks ??= new Repositories.TelegramLink.TelegramLinkRepository(_context);
+    public IOtpCodeRepository OtpCodes => _otpCodes ??= new Repositories.OtpCode.OtpCodeRepository(_context);
+    public IBookingRepository Bookings => _bookings ??= new Repositories.Booking.BookingRepository(_context);
 
     public Task<int> SaveChangesAsync(CancellationToken ct = default) => _context.SaveChangesAsync(ct);
 }

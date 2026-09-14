@@ -9,5 +9,8 @@ public class NurseDtoConfig : Profile
     {
         CreateMap<Nurse, NurseDto>()
             .ForMember(x => x.ExperienceYears, x => x.MapFrom(ent => (int)((DateTime.Today - ent.ExperienceStartDate).TotalDays / 365.25)));
+
+        CreateMap<Nurse, PublicNurseDto>()
+            .ForMember(x => x.ExperienceYears, x => x.MapFrom(ent => (int)((DateTime.Today - ent.ExperienceStartDate).TotalDays / 365.25)));
     }
 }

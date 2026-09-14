@@ -29,9 +29,6 @@ public partial class User : IHaveIdProp<long>
     [Column("PHONE_NUMBER")]
     [StringLength(30)]
     public string PhoneNumber { get; set; }
-    [Column("PASSWORD")]
-    [StringLength(30)]
-    public string Password { get; set; }
 
     [Column("PASSWORD_HASH")]
     [StringLength(200)]

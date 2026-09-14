@@ -1,4 +1,5 @@
 using AutoMapper;
+using MedFlow.Application.Common;
 using MedFlow.Application.Common.Interfaces;
 using MedFlow.Domain.Entities;
 using MedFlow.Domain.Enums;
@@ -38,6 +39,7 @@ public class NurseService : StatusGenericHandler, INurseService
             ExperienceStartDate = request.ExperienceStartDate,
             Login = request.Login,
             Rating = 0,
+            PricePerVisit = request.PricePerVisit > 0 ? request.PricePerVisit : BookingConstants.DefaultNurseVisitPrice,
             IsActive = true,
             HiredAt = DateTimeOffset.UtcNow
         };
@@ -88,6 +90,16 @@ public class NurseService : StatusGenericHandler, INurseService
         return result;
     }
 
+    public async Task<List<PublicNurseDto>> ListPublicAsync(NurseType? type, Gender? gender, CancellationToken ct = default)
+    {
+        var query = _uow.Nurses.Query().Where(n => n.IsActive);
+        if (type is { } t) query = query.Where(n => n.Type == t);
+        if (gender is { } g) query = query.Where(n => n.Gender == g);
+
+        var nurses = await query.OrderBy(n => n.FullName).ToListAsync(ct);
+        return _mapper.Map<List<PublicNurseDto>>(nurses);
+    }
+
     public async Task<NurseDto?> UpdateAsync(int id, UpdateNurseRequest request, CancellationToken ct = default)
     {
         var nurse = await _uow.Nurses.GetByIdAsync(id, ct);
@@ -102,6 +114,7 @@ public class NurseService : StatusGenericHandler, INurseService
         nurse.Specialization = request.Specialization;
         nurse.IsActive = request.IsActive;
         nurse.Rating = request.Rating;
+        nurse.PricePerVisit = request.PricePerVisit;
 
         _uow.Nurses.Update(nurse);
         await _uow.SaveChangesAsync(ct);

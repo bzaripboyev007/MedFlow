@@ -21,6 +21,9 @@ public class MedFlowDbContext : DbContext
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<TelegramLink> TelegramLinks => Set<TelegramLink>();
+    public DbSet<OtpCode> OtpCodes => Set<OtpCode>();
+    public DbSet<Booking> Bookings => Set<Booking>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

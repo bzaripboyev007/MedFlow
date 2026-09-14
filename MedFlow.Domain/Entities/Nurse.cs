@@ -49,6 +49,11 @@ public partial class Nurse : IHaveIdProp<int>
     [Precision(3, 2)]
     public decimal Rating { get; set; }
 
+    /// <summary>Bitta tashrif (muolaja) uchun hamshiralik xizmati narxi.</summary>
+    [Column("PRICE_PER_VISIT")]
+    [Precision(18, 2)]
+    public decimal PricePerVisit { get; set; }
+
     [Column("IS_ACTIVE")]
     public bool IsActive { get; set; }
 

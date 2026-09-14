@@ -46,6 +46,15 @@ public class NursesController : ApiControllerBase
         return FromStatus(result, _nurses);
     }
 
+    /// <summary>Bron sahifasi uchun faol hamshiralar (mehmon ham ko'ra oladi, telefon raqamisiz).</summary>
+    [HttpGet]
+    [AllowAnonymous]
+    public async Task<ActionResult<List<PublicNurseDto>>> PublicList([FromQuery] NurseType? type, [FromQuery] Gender? gender, CancellationToken ct)
+    {
+        var result = await _nurses.ListPublicAsync(type, gender, ct);
+        return FromStatus(result, _nurses);
+    }
+
     [HttpPut("{id:int}")]
     [Authorize(Policy = PermissionCode.NurseEdit)]
     public async Task<ActionResult<NurseDto>> Update(int id, [FromBody] UpdateNurseRequest request, CancellationToken ct)

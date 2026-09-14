@@ -13,6 +13,7 @@ public class NurseDto
     public DateTime ExperienceStartDate { get; set; }
     public int ExperienceYears { get; set; }
     public decimal Rating { get; set; }
+    public decimal PricePerVisit { get; set; }
     public int CompletedCoursesCount { get; set; }
     public bool IsActive { get; set; }
 }

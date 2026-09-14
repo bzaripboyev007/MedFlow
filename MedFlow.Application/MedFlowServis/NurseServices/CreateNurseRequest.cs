@@ -12,4 +12,7 @@ public class CreateNurseRequest
     public DateTime ExperienceStartDate { get; set; }
     public string Login { get; set; } = null!;
     public string Password { get; set; } = null!;
+
+    /// <summary>Bitta tashrif narxi. 0 bo'lsa standart narx qo'yiladi.</summary>
+    public decimal PricePerVisit { get; set; }
 }
