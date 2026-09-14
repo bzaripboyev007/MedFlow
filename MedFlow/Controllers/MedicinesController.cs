@@ -30,7 +30,7 @@ public class MedicinesController : ApiControllerBase
         return CreatedAtAction(nameof(GetById), new { id = result!.Id }, result);
     }
 
-    [HttpGet("{id:int}")]
+    [HttpGet]
     public async Task<ActionResult<MedicineDto>> GetById(int id, CancellationToken ct)
     {
         var result = await _pharmacy.GetByIdAsync(id, ct);
@@ -44,14 +44,14 @@ public class MedicinesController : ApiControllerBase
         return FromStatus(result, _pharmacy);
     }
 
-    [HttpPut("{id:int}")]
+    [HttpPut]
     public async Task<ActionResult<MedicineDto>> Update(int id, [FromBody] UpdateMedicineRequest request, CancellationToken ct)
     {
         var result = await _pharmacy.UpdateAsync(id, request, ct);
         return FromStatus(result, _pharmacy);
     }
 
-    [HttpPost("{id:int}")]
+    [HttpPost]
     public async Task<ActionResult<MedicineDto>> StockIn(int id, [FromBody] StockInRequest request, CancellationToken ct)
     {
         var result = await _pharmacy.StockInAsync(id, request.Quantity, ct);
