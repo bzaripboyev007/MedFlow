@@ -15,10 +15,20 @@ public static class BookingConstants
     public const string ServiceTypeClinic = "clinic";
 
     public const string StatusNew = "Yangi";
+    public const string StatusArrived = "Kelgan";
+    public const string StatusInProgress = "Jarayonda";
+    public const string StatusCompleted = "Yakunlandi";
+    public const string StatusCancelled = "Bekor qilindi";
 
     /// <summary>Bron o'tishi mumkin bo'lgan holatlar.</summary>
     public static readonly string[] AllowedStatuses =
     {
-        StatusNew, "Kelgan", "Jarayonda", "Yakunlandi", "Bekor qilindi"
+        StatusNew, StatusArrived, StatusInProgress, StatusCompleted, StatusCancelled
+    };
+
+    /// <summary>Hamshira vaqtini band qiladigan (hal qilinmagan) bron holatlari.</summary>
+    public static readonly string[] ActiveStatuses =
+    {
+        StatusNew, StatusArrived, StatusInProgress
     };
 }

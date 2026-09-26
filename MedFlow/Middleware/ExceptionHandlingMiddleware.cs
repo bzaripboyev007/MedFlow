@@ -23,6 +23,15 @@ public class ExceptionHandlingMiddleware
         catch (Exception ex)
         {
             _logger.LogError(ex, "Kutilmagan xatolik");
+
+            // Javob yuborila boshlangan bo'lsa (streaming/serializatsiya paytida), header va
+            // statusni o'zgartirish "response headers already sent" xatoligini keltirib chiqaradi (X-12).
+            if (context.Response.HasStarted)
+            {
+                _logger.LogWarning("Javob allaqachon boshlangan - xatolik javobini yuborib bo'lmaydi.");
+                return;
+            }
+
             await WriteProblemAsync(context, HttpStatusCode.InternalServerError, "Kutilmagan xatolik yuz berdi.");
         }
     }

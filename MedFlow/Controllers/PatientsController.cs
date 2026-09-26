@@ -19,7 +19,7 @@ public class PatientsController : ApiControllerBase
     }
 
     [HttpPost]
-    //[Authorize(Roles = RoleGroups.Staff)]
+    [Authorize(Roles = RoleGroups.Staff)]
     public async Task<ActionResult<PatientDto>> CreateAsync([FromBody] CreatePatientRequest request, CancellationToken ct)
     {
         var result = await _patients.CreateAsync(request, ct);

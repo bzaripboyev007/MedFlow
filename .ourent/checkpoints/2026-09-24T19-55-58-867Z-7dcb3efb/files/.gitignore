@@ -1,0 +1,15 @@
+# .NET build artifacts
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Claude Code local settings (machine-specific)
+.claude/
+
+# Local tooling — downloaded binaries and runtime data, not source
+tools/minio/
+tools/minio-data/

@@ -7,6 +7,8 @@ public static class PermissionCode
     public const string NurseEdit = "Nurse.Edit";
     public const string PrescriptionVerify = "Prescription.Verify";
     public const string CourseEdit = "Course.Edit";
+    public const string BookingView = "Booking.View";
+    public const string BookingUpdateStatus = "Booking.UpdateStatus";
     public const string SessionArrive = "Session.Arrive";
     public const string SessionComplete = "Session.Complete";
     public const string SessionMarkMissed = "Session.MarkMissed";
@@ -23,6 +25,8 @@ public static class PermissionCode
         NurseEdit,
         PrescriptionVerify,
         CourseEdit,
+        BookingView,
+        BookingUpdateStatus,
         SessionArrive,
         SessionComplete,
         SessionMarkMissed,

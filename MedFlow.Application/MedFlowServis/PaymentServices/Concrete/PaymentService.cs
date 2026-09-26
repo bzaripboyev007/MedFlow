@@ -75,7 +75,7 @@ public class PaymentService : StatusGenericHandler, IPaymentService
         var payment = await _uow.Payments.Query().FirstOrDefaultAsync(p => p.CourseId == courseId, ct);
         if (payment is null)
         {
-            AddError($"{nameof(Payment)} (Id={courseId}) topilmadi.");
+            AddError($"{nameof(Payment)} (CourseId={courseId}) topilmadi.");
             return null;
         }
 

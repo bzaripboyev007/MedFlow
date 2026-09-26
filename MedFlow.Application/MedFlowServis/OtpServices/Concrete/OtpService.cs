@@ -20,9 +20,18 @@ public class OtpService : StatusGenericHandler, IOtpService
 
     public async Task<bool> SendOtpAsync(SendOtpRequest request, CancellationToken ct = default)
     {
-        var phoneNumber = request.PhoneNumber.Trim();
+        var phoneNumber = PhoneNumberNormalizer.Normalize(request.PhoneNumber);
+        var phoneForms = PhoneNumberNormalizer.StorageForms(request.PhoneNumber);
 
-        var link = await _uow.TelegramLinks.Query().FirstOrDefaultAsync(l => l.PhoneNumber == phoneNumber, ct);
+        if (phoneNumber.Length == 0)
+        {
+            AddError("Telefon raqamini kiriting.");
+            return false;
+        }
+
+        // TELEGRAM_LINKS.PHONE_NUMBER bot tomonidan "+998..." ko'rinishida saqlanadi,
+        // shuning uchun ham "+"li, ham "+"siz saqlangan yozuvlar bo'yicha izlaymiz.
+        var link = await _uow.TelegramLinks.Query().FirstOrDefaultAsync(l => phoneForms.Contains(l.PhoneNumber), ct);
         if (link is null)
         {
             AddError("Bu raqam Telegram botga ulanmagan. Avval botga '/start' bosib, telefon raqamingizni ulashing.");
@@ -30,7 +39,7 @@ public class OtpService : StatusGenericHandler, IOtpService
         }
 
         var lastCode = await _uow.OtpCodes.Query()
-            .Where(o => o.PhoneNumber == phoneNumber)
+            .Where(o => phoneForms.Contains(o.PhoneNumber))
             .OrderByDescending(o => o.CreatedAt)
             .FirstOrDefaultAsync(ct);
 
@@ -71,11 +80,11 @@ public class OtpService : StatusGenericHandler, IOtpService
 
     public async Task<bool> VerifyOtpAsync(VerifyOtpRequest request, CancellationToken ct = default)
     {
-        var phoneNumber = request.PhoneNumber.Trim();
+        var phoneForms = PhoneNumberNormalizer.StorageForms(request.PhoneNumber);
         var code = request.Code.Trim();
 
         var otp = await _uow.OtpCodes.Query()
-            .Where(o => o.PhoneNumber == phoneNumber && !o.IsUsed && o.ExpiresAt > DateTimeOffset.UtcNow)
+            .Where(o => phoneForms.Contains(o.PhoneNumber) && !o.IsUsed && o.ExpiresAt > DateTimeOffset.UtcNow)
             .OrderByDescending(o => o.CreatedAt)
             .FirstOrDefaultAsync(ct);
 
@@ -111,11 +120,11 @@ public class OtpService : StatusGenericHandler, IOtpService
 
     public async Task<bool> IsRecentlyVerifiedAsync(string phoneNumber, CancellationToken ct = default)
     {
-        var phone = phoneNumber.Trim();
+        var phoneForms = PhoneNumberNormalizer.StorageForms(phoneNumber);
         var cutoff = DateTimeOffset.UtcNow.AddMinutes(-AuthConstants.OtpExpiryMinutes);
 
         return await _uow.OtpCodes.Query()
-            .AnyAsync(o => o.PhoneNumber == phone && o.IsUsed && o.VerifiedAt != null && o.VerifiedAt > cutoff, ct);
+            .AnyAsync(o => phoneForms.Contains(o.PhoneNumber) && o.IsUsed && o.VerifiedAt != null && o.VerifiedAt > cutoff, ct);
     }
 
     private static string GenerateCode(int length)

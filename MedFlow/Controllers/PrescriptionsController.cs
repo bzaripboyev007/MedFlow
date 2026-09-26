@@ -48,7 +48,19 @@ public class PrescriptionsController : ApiControllerBase
     public async Task<ActionResult<PrescriptionDto>> GetById(long id, CancellationToken ct)
     {
         var result = await _prescriptions.GetByIdAsync(id, ct);
-        return FromStatus(result, _prescriptions);
+        if (!_prescriptions.IsValid)
+        {
+            return FromStatus(result, _prescriptions);
+        }
+
+        // IDOR himoyasi: bemor faqat o'zining yoki farzandining retseptini ochadi
+        // (Upload/ListByPatient bilan bir xil qoida).
+        if (User.IsPatient() && !await _patients.IsSelfOrChildAsync(User.GetLinkedPatientId()!.Value, result!.PatientId, ct))
+        {
+            return Forbid();
+        }
+
+        return Ok(result);
     }
 
     [HttpGet("{patientId:long}")]

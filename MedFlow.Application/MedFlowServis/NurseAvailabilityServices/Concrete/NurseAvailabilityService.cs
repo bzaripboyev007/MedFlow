@@ -1,3 +1,4 @@
+using System.Globalization;
 using MedFlow.Application.Common;
 using MedFlow.Application.Common.Interfaces;
 using MedFlow.Domain.Enums;
@@ -24,12 +25,32 @@ public class NurseAvailabilityService : INurseAvailabilityService
             .Select(s => s.ScheduledAt)
             .ToListAsync(ct);
 
+        // Bronlar ham hamshira vaqtini band qiladi (uyga chaqirish/klinika). Ilgari faqat
+        // seanslar hisobga olinardi, natijada bir vaqtga ikki mijoz yozilardi (X-8).
+        // "Yakunlandi"/"Bekor qilindi" bronlar band hisoblanmaydi.
+        var activeBookings = await _uow.Bookings.Query()
+            .Where(b => b.NurseId == nurseId && BookingConstants.ActiveStatuses.Contains(b.Status))
+            .Select(b => new { b.BookingDate, b.BookingTime })
+            .ToListAsync(ct);
+
+        var busyStarts = new List<DateTimeOffset>(busySessions);
+        foreach (var booking in activeBookings)
+        {
+            // Bron sana/vaqti matn ko'rinishida saqlanadi: "yyyy-MM-dd" va "HH:mm".
+            // Buzilgan (eski) yozuvlar seans rejalashtirishni bloklamasligi uchun o'tkazib yuboriladi.
+            if (DateOnly.TryParseExact(booking.BookingDate, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+                && TimeOnly.TryParseExact(booking.BookingTime, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var time))
+            {
+                busyStarts.Add(new DateTimeOffset(date.ToDateTime(time), TimeSpan.Zero));
+            }
+        }
+
         foreach (var time in times)
         {
             var newFrom = time;
             var newTo = time + duration;
 
-            foreach (var busyFrom in busySessions)
+            foreach (var busyFrom in busyStarts)
             {
                 var busyTo = busyFrom + duration;
                 var overlaps = newFrom < busyTo && busyFrom < newTo;

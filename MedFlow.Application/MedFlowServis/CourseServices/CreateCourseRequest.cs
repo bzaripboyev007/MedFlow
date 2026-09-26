@@ -12,8 +12,8 @@ public class CreateCourseRequest
     public int DurationDays { get; set; }
     public int TimesPerDay { get; set; }
 
-    /// <summary>"HH:mm" formatida, TimesPerDay bilan bir xil uzunlikda.</summary>
-    public List<string> PreferredTimes { get; set; } = null!;
+    /// <summary>"HH:mm" formatida, TimesPerDay bilan bir xil uzunlikda. Yuborilmasa CourseService 400 qaytaradi.</summary>
+    public List<string>? PreferredTimes { get; set; }
 
     public DateTime StartDate { get; set; }
 

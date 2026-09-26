@@ -1,6 +1,8 @@
+using System.Globalization;
 using AutoMapper;
 using MedFlow.Application.Common;
 using MedFlow.Application.Common.Interfaces;
+using MedFlow.Application.MedFlowServis.NurseAvailabilityServices.Concrete;
 using MedFlow.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using StatusGeneric;
@@ -10,11 +12,13 @@ namespace MedFlow.Application.MedFlowServis.BookingServices.Concrete;
 public class BookingService : StatusGenericHandler, IBookingService
 {
     private readonly IUnitOfWork _uow;
+    private readonly INurseAvailabilityService _availability;
     private readonly IMapper _mapper;
 
-    public BookingService(IUnitOfWork uow, IMapper mapper)
+    public BookingService(IUnitOfWork uow, INurseAvailabilityService availability, IMapper mapper)
     {
         _uow = uow;
+        _availability = availability;
         _mapper = mapper;
     }
 
@@ -68,6 +72,21 @@ public class BookingService : StatusGenericHandler, IBookingService
             return null;
         }
 
+        // Sana/vaqt formatini qat'iy tekshiramiz va normallashtirilgan ko'rinishda saqlaymiz (X-13).
+        // Aks holda "2026-13-45" kabi qiymat nvarchar(10) ustunga tushib, keyinchalik
+        // NurseAvailabilityService solishtiruvini buzardi.
+        if (!DateOnly.TryParseExact(request.BookingDate.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var bookingDate))
+        {
+            AddError("Bron kuni 'yyyy-MM-dd' formatida bo'lishi kerak.");
+            return null;
+        }
+
+        if (!TimeOnly.TryParseExact(request.BookingTime.Trim(), "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var bookingTime))
+        {
+            AddError("Bron vaqti 'HH:mm' formatida bo'lishi kerak.");
+            return null;
+        }
+
         var nurse = await _uow.Nurses.GetByIdAsync(request.NurseId, ct);
         if (nurse is null)
         {
@@ -78,6 +97,15 @@ public class BookingService : StatusGenericHandler, IBookingService
         if (!nurse.IsActive)
         {
             AddError("Tanlangan hamshira hozircha faol emas. Boshqa hamshirani tanlang.");
+            return null;
+        }
+
+        // Bron yaratishdan oldin hamshira shu vaqtda bo'sh ekaniga ishonch hosil qilamiz:
+        // mavjud seanslar (kurslar) va boshqa bronlar hisobga olinadi (X-8).
+        var slot = new DateTimeOffset(bookingDate.ToDateTime(bookingTime), TimeSpan.Zero);
+        if (!await _availability.IsAvailableForAllAsync(nurse.Id, new[] { slot }, ct))
+        {
+            AddError("Tanlangan hamshira bu vaqtda band. Boshqa vaqtni tanlang.");
             return null;
         }
 
@@ -95,8 +123,8 @@ public class BookingService : StatusGenericHandler, IBookingService
                 ? (string.IsNullOrWhiteSpace(request.Landmark) ? null : request.Landmark.Trim())
                 : null,
             NurseId = nurse.Id,
-            BookingDate = request.BookingDate.Trim(),
-            BookingTime = request.BookingTime.Trim(),
+            BookingDate = bookingDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            BookingTime = bookingTime.ToString("HH:mm", CultureInfo.InvariantCulture),
             PrescriptionFile = string.IsNullOrWhiteSpace(request.PrescriptionFile) ? null : request.PrescriptionFile.Trim(),
             PrescriptionUrl = string.IsNullOrWhiteSpace(request.PrescriptionUrl) ? null : request.PrescriptionUrl,
             Status = BookingConstants.StatusNew,

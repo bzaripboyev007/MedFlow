@@ -37,6 +37,7 @@ public class SessionService : StatusGenericHandler, ISessionService
     {
         var sessions = await _uow.Sessions.Query()
             .Include(s => s.Nurse)
+            .Include(s => s.Course) // SessionDto.PatientId shu navigatsiyadan olinadi.
             .Where(s => s.CourseId == courseId)
             .OrderBy(s => s.SeqNo)
             .ToListAsync(ct);

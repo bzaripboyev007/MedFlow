@@ -20,5 +20,11 @@ public interface IUnitOfWork
     IOtpCodeRepository OtpCodes { get; }
     IBookingRepository Bookings { get; }
 
+    /// <summary>
+    /// Amalni bitta DB tranzaksiyasi ichida bajaradi: xatolik bo'lsa rollback qilinadi.
+    /// Bir nechta SaveChangesAsync orasida yarim holat qolib ketishining oldini oladi.
+    /// </summary>
+    Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> action, CancellationToken ct = default);
+
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 }

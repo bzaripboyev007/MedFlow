@@ -37,7 +37,16 @@ public class CourseService : StatusGenericHandler, ICourseService
             return null;
         }
 
-        if (request.PreferredTimes.Count != request.TimesPerDay)
+        // PreferredTimes JSON'da umuman yuborilmasa null bo'lib qoladi (X-7).
+        // Null'ni avval tekshiramiz, aks holda Count'da NullReferenceException -> 500 (to'g'ri javob 400).
+        var preferredTimes = request.PreferredTimes;
+        if (preferredTimes is null || preferredTimes.Count == 0)
+        {
+            AddError("Qulay vaqtlar (PreferredTimes) kiritilishi shart.");
+            return null;
+        }
+
+        if (preferredTimes.Count != request.TimesPerDay)
         {
             AddError("Qulay vaqtlar soni kunlik chastotaga (TimesPerDay) teng bo'lishi kerak.");
             return null;
@@ -73,7 +82,7 @@ public class CourseService : StatusGenericHandler, ICourseService
         TimeSpan[] times;
         try
         {
-            times = request.PreferredTimes.Select(ParseTime).OrderBy(t => t).ToArray();
+            times = preferredTimes.Select(ParseTime).OrderBy(t => t).ToArray();
         }
         catch (FormatException ex)
         {

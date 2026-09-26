@@ -1,6 +1,7 @@
 using MedFlow.Application.Common.Interfaces;
 using MedFlow.Application.Common.Interfaces.Repositories;
 using MedFlow.DataLayer.Repository.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace MedFlow.DataLayer.Repository;
 
@@ -44,6 +45,14 @@ public class UnitOfWork : IUnitOfWork
     public ITelegramLinkRepository TelegramLinks => _telegramLinks ??= new Repositories.TelegramLink.TelegramLinkRepository(_context);
     public IOtpCodeRepository OtpCodes => _otpCodes ??= new Repositories.OtpCode.OtpCodeRepository(_context);
     public IBookingRepository Bookings => _bookings ??= new Repositories.Booking.BookingRepository(_context);
+
+    public async Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> action, CancellationToken ct = default)
+    {
+        await using var transaction = await _context.Database.BeginTransactionAsync(ct);
+        var result = await action();
+        await transaction.CommitAsync(ct);
+        return result;
+    }
 
     public Task<int> SaveChangesAsync(CancellationToken ct = default) => _context.SaveChangesAsync(ct);
 }

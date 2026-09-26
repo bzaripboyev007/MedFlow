@@ -30,7 +30,14 @@ public class AuthService : StatusGenericHandler, IAuthService
 
     public async Task<AuthResultDto?> RegisterPatientAsync(RegisterPatientRequest request, CancellationToken ct = default)
     {
-        var phoneNumber = request.PhoneNumber.Trim();
+        var phoneNumber = PhoneNumberNormalizer.Normalize(request.PhoneNumber);
+        var phoneForms = PhoneNumberNormalizer.StorageForms(request.PhoneNumber);
+
+        if (phoneNumber.Length == 0)
+        {
+            AddError("Telefon raqamini kiriting.");
+            return null;
+        }
 
         var verifiedViaTelegram = await _otpService.IsRecentlyVerifiedAsync(phoneNumber, ct);
         if (!verifiedViaTelegram)
@@ -39,7 +46,7 @@ public class AuthService : StatusGenericHandler, IAuthService
             return null;
         }
 
-        if (await _uow.Users.Query().AnyAsync(u => u.PhoneNumber == phoneNumber, ct))
+        if (await _uow.Users.Query().AnyAsync(u => phoneForms.Contains(u.PhoneNumber), ct))
         {
             AddError("Bu telefon raqami bilan foydalanuvchi allaqachon ro'yxatdan o'tgan.");
             return null;
@@ -61,20 +68,28 @@ public class AuthService : StatusGenericHandler, IAuthService
             Allergies = request.Allergies,
             CreatedAt = DateTimeOffset.UtcNow
         };
-        await _uow.Patients.AddAsync(patient, ct);
-        await _uow.SaveChangesAsync(ct);
 
-        var user = new User
+        // Patient va User bitta tranzaksiyada yaratiladi: oraliqda xatolik bo'lsa
+        // "orphan" Patient qolib ketmaydi.
+        var user = await _uow.ExecuteInTransactionAsync(async () =>
         {
-            Role = UserRole.Patient,
-            FullName = request.FullName,
-            PhoneNumber = phoneNumber,
-            PasswordHash = _passwordHasher.Hash(request.Password),
-            LinkedPatientId = patient.Id,
-            CreatedAt = DateTimeOffset.UtcNow
-        };
-        await _uow.Users.AddAsync(user, ct);
-        await _uow.SaveChangesAsync(ct);
+            await _uow.Patients.AddAsync(patient, ct);
+            await _uow.SaveChangesAsync(ct);
+
+            var newUser = new User
+            {
+                Role = UserRole.Patient,
+                FullName = request.FullName,
+                PhoneNumber = phoneNumber,
+                PasswordHash = _passwordHasher.Hash(request.Password),
+                LinkedPatientId = patient.Id,
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            await _uow.Users.AddAsync(newUser, ct);
+            await _uow.SaveChangesAsync(ct);
+
+            return newUser;
+        }, ct);
 
         return await IssueTokensAsync(user, ct);
     }
@@ -88,9 +103,16 @@ public class AuthService : StatusGenericHandler, IAuthService
             return null;
         }
 
-        var phoneNumber = request.PhoneNumber.Trim();
+        var phoneNumber = PhoneNumberNormalizer.Normalize(request.PhoneNumber);
+        var phoneForms = PhoneNumberNormalizer.StorageForms(request.PhoneNumber);
 
-        if (await _uow.Users.Query().AnyAsync(u => u.PhoneNumber == phoneNumber, ct))
+        if (phoneNumber.Length == 0)
+        {
+            AddError("Telefon raqamini kiriting.");
+            return null;
+        }
+
+        if (await _uow.Users.Query().AnyAsync(u => phoneForms.Contains(u.PhoneNumber), ct))
         {
             AddError("Bu telefon raqami bilan foydalanuvchi allaqachon ro'yxatdan o'tgan.");
             return null;
@@ -112,8 +134,10 @@ public class AuthService : StatusGenericHandler, IAuthService
 
     public async Task<AuthResultDto?> LoginAsync(LoginRequest request, CancellationToken ct = default)
     {
-        var phoneNumber = request.PhoneNumber.Trim();
-        var user = await _uow.Users.Query().FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber, ct);
+        // Eski ("+"siz) va yangi ("+998...") yozuvlar bilan mos kelishi uchun
+        // ikkala ko'rinish bo'yicha qidiramiz.
+        var phoneForms = PhoneNumberNormalizer.StorageForms(request.PhoneNumber);
+        var user = await _uow.Users.Query().FirstOrDefaultAsync(u => phoneForms.Contains(u.PhoneNumber), ct);
         if (user is null)
         {
             AddError("Login yoki parol xato.");
@@ -205,7 +229,8 @@ public class AuthService : StatusGenericHandler, IAuthService
 
     public async Task<AuthResultDto?> ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct = default)
     {
-        var phoneNumber = request.PhoneNumber.Trim();
+        var phoneNumber = PhoneNumberNormalizer.Normalize(request.PhoneNumber);
+        var phoneForms = PhoneNumberNormalizer.StorageForms(request.PhoneNumber);
 
         var verifiedViaTelegram = await _otpService.IsRecentlyVerifiedAsync(phoneNumber, ct);
         if (!verifiedViaTelegram)
@@ -214,7 +239,7 @@ public class AuthService : StatusGenericHandler, IAuthService
             return null;
         }
 
-        var user = await _uow.Users.Query().FirstOrDefaultAsync(u => u.PhoneNumber == phoneNumber, ct);
+        var user = await _uow.Users.Query().FirstOrDefaultAsync(u => phoneForms.Contains(u.PhoneNumber), ct);
         if (user is null)
         {
             AddError("Bu telefon raqami bilan foydalanuvchi topilmadi.");

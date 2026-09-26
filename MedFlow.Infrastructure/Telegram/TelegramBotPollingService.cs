@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MedFlow.Application.Common;
 using MedFlow.Application.Common.Interfaces;
 using MedFlow.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -121,21 +122,46 @@ public class TelegramBotPollingService : BackgroundService
 
     private async Task LinkPhoneAsync(HttpClient http, long chatId, TelegramContact contact, string? username, CancellationToken ct)
     {
-        var phoneNumber = NormalizePhone(contact.PhoneNumber);
+        // Raqam kanonik "+998..." ko'rinishida saqlanadi - OTP/auth qidiruvi ham shu formatda.
+        var phoneNumber = PhoneNumberNormalizer.Normalize(contact.PhoneNumber);
+        if (phoneNumber.Length == 0)
+        {
+            await SendMessageAsync(http, chatId, "❌ Telefon raqamini aniqlab bo'lmadi. Iltimos, qaytadan urinib ko'ring.", ct);
+            return;
+        }
 
         using var scope = _scopeFactory.CreateScope();
         var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
 
-        var existing = await uow.TelegramLinks.Query()
-            .FirstOrDefaultAsync(l => l.PhoneNumber == phoneNumber || l.ChatId == chatId, ct);
+        // PHONE_NUMBER va CHAT_ID bo'yicha alohida izlaymiz: bitta "OR" so'rovi ikkala
+        // unique index'ga tegishli qatorlarni aralashtirib yuborardi (X-9).
+        var byPhone = await uow.TelegramLinks.Query().FirstOrDefaultAsync(l => l.PhoneNumber == phoneNumber, ct);
+        var byChat = await uow.TelegramLinks.Query().FirstOrDefaultAsync(l => l.ChatId == chatId, ct);
 
-        if (existing is not null)
+        TelegramLink? target;
+
+        if (byPhone is not null && byChat is not null && byPhone.Id != byChat.Id)
         {
-            existing.PhoneNumber = phoneNumber;
-            existing.ChatId = chatId;
-            existing.TelegramUsername = username;
-            existing.LinkedAt = DateTimeOffset.UtcNow;
-            uow.TelegramLinks.Update(existing);
+            // Konflikt: bu chat boshqa raqamga, bu raqam esa boshqa chatga bog'langan.
+            // Yangi kontakt ustuvor: eski chat bog'lanishini o'chirib, CHAT_ID slotini
+            // alohida saqlashda bo'shatamiz (delete va update tartibi deterministik bo'lsin).
+            uow.TelegramLinks.Remove(byChat);
+            await uow.SaveChangesAsync(ct);
+
+            target = byPhone;
+        }
+        else
+        {
+            target = byPhone ?? byChat;
+        }
+
+        if (target is not null)
+        {
+            target.PhoneNumber = phoneNumber;
+            target.ChatId = chatId;
+            target.TelegramUsername = username;
+            target.LinkedAt = DateTimeOffset.UtcNow;
+            uow.TelegramLinks.Update(target);
         }
         else
         {
@@ -148,21 +174,37 @@ public class TelegramBotPollingService : BackgroundService
             }, ct);
         }
 
-        await uow.SaveChangesAsync(ct);
-
-        var confirmPayload = new
+        try
         {
-            chat_id = chatId,
-            text = $"✅ Raqamingiz ({phoneNumber}) ulandi! Endi MedFlow'da ro'yxatdan o'tish/kirish paytida tasdiqlash kodini shu chatga yuboramiz.",
-            reply_markup = new { remove_keyboard = true }
-        };
-        await http.PostAsJsonAsync($"https://api.telegram.org/bot{_botToken}/sendMessage", confirmPayload, ct);
+            await uow.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex)
+        {
+            // Masalan, parallel yangilanish sababli unique index to'qnashuvi: polling
+            // sikli qulab tushmasligi uchun xatoni ushlaymiz va foydalanuvchiga aytamiz.
+            _logger.LogWarning(ex, "Telegram bog'lanishini saqlashda konflikt (ChatId={ChatId}).", chatId);
+            await SendMessageAsync(http, chatId, "❌ Bu chat allaqachon boshqa raqamga bog'langan. Iltimos, administratorga murojaat qiling.", ct);
+            return;
+        }
+
+        await SendMessageAsync(
+            http,
+            chatId,
+            $"✅ Raqamingiz ({phoneNumber}) ulandi! Endi MedFlow'da ro'yxatdan o'tish/kirish paytida tasdiqlash kodini shu chatga yuboramiz.",
+            ct,
+            removeKeyboard: true);
     }
 
-    private static string NormalizePhone(string phone)
+    private async Task SendMessageAsync(HttpClient http, long chatId, string text, CancellationToken ct, bool removeKeyboard = false)
     {
-        var trimmed = phone.Trim();
-        return trimmed.StartsWith('+') ? trimmed : $"+{trimmed}";
+        var payload = new
+        {
+            chat_id = chatId,
+            text,
+            reply_markup = removeKeyboard ? new { remove_keyboard = true } : null
+        };
+
+        await http.PostAsJsonAsync($"https://api.telegram.org/bot{_botToken}/sendMessage", payload, ct);
     }
 
     private sealed class TelegramUpdatesResponse

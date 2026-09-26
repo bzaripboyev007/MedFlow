@@ -14,6 +14,8 @@ public static class RolePermissions
         PermissionCode.PatientEdit,
         PermissionCode.PrescriptionVerify,
         PermissionCode.CourseEdit,
+        PermissionCode.BookingView,
+        PermissionCode.BookingUpdateStatus,
         PermissionCode.SessionArrive,
         PermissionCode.SessionComplete,
         PermissionCode.SessionMarkMissed,
