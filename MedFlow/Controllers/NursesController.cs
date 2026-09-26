@@ -63,7 +63,10 @@ public class NursesController : ApiControllerBase
         return FromStatus(result, _nurses);
     }
 
-    [HttpGet("{id:int}")]
+    /// <summary>Hamshiraning bir kunda band vaqtlari (seanslar + faol bronlar). "availability" aniq route,
+    /// shuning uchun GetById bilan to'qnashmaydi.</summary>
+    [HttpGet("availability/{id:int}")]
+    [Authorize(Policy = PermissionCode.BookingView)]
     public async Task<ActionResult<List<BusySlotDto>>> GetAvailability(int id, [FromQuery] DateTime date, CancellationToken ct)
     {
         var result = await _nurses.GetAvailabilityAsync(id, date, ct);

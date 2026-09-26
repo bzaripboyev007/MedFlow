@@ -1,6 +1,7 @@
 using AutoMapper;
 using MedFlow.Application.Common;
 using MedFlow.Application.Common.Interfaces;
+using MedFlow.Application.MedFlowServis.NurseAvailabilityServices.Concrete;
 using MedFlow.Domain.Entities;
 using MedFlow.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -12,18 +13,34 @@ public class NurseService : StatusGenericHandler, INurseService
 {
     private readonly IUnitOfWork _uow;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly INurseAvailabilityService _availability;
     private readonly IMapper _mapper;
 
-    public NurseService(IUnitOfWork uow, IPasswordHasher passwordHasher, IMapper mapper)
+    public NurseService(IUnitOfWork uow, IPasswordHasher passwordHasher, INurseAvailabilityService availability, IMapper mapper)
     {
         _uow = uow;
         _passwordHasher = passwordHasher;
+        _availability = availability;
         _mapper = mapper;
     }
 
     public async Task<NurseDto?> CreateAsync(CreateNurseRequest request, CancellationToken ct = default)
     {
-        if (await _uow.Users.Query().AnyAsync(u => u.PhoneNumber == request.Phone, ct))
+        // Telefon raqamni yagona E.164 ko'rinishga keltiramiz ("+998901234567") va bazadagi
+        // eski ("+"siz) yozuvlar bilan ham solishtiramiz — X-5 dagi normalizatsiyaning aynan
+        // shu naqshi hamshira yaratish oqimida yetishmayotgan edi (X-16). Aks holda bemor
+        // "+998901234567" bilan ro'yxatdan o'tgan bo'lsa, "998901234567" bilan hamshira
+        // yaratish unique index'ga urilib 500 (DbUpdateException) berardi.
+        var phoneNumber = PhoneNumberNormalizer.Normalize(request.Phone);
+        var phoneForms = PhoneNumberNormalizer.StorageForms(request.Phone);
+
+        if (phoneNumber.Length == 0)
+        {
+            AddError("Telefon raqamini kiriting.");
+            return null;
+        }
+
+        if (await _uow.Users.Query().AnyAsync(u => phoneForms.Contains(u.PhoneNumber), ct))
         {
             AddError("Bu telefon raqami bilan foydalanuvchi allaqachon ro'yxatdan o'tgan.");
             return null;
@@ -34,10 +51,9 @@ public class NurseService : StatusGenericHandler, INurseService
             FullName = request.FullName,
             Type = request.Type,
             Gender = request.Gender,
-            Phone = request.Phone,
+            Phone = phoneNumber,
             Specialization = request.Specialization,
             ExperienceStartDate = request.ExperienceStartDate,
-            Login = request.Login,
             Rating = 0,
             PricePerVisit = request.PricePerVisit > 0 ? request.PricePerVisit : BookingConstants.DefaultNurseVisitPrice,
             IsActive = true,
@@ -50,7 +66,7 @@ public class NurseService : StatusGenericHandler, INurseService
         {
             Role = request.Type == NurseType.Pediatric ? UserRole.PediatricNurse : UserRole.AdultNurse,
             FullName = request.FullName,
-            PhoneNumber = request.Phone,
+            PhoneNumber = phoneNumber,
             PasswordHash = _passwordHasher.Hash(request.Password),
             LinkedNurseId = nurse.Id,
             CreatedAt = DateTimeOffset.UtcNow
@@ -110,7 +126,7 @@ public class NurseService : StatusGenericHandler, INurseService
         }
 
         nurse.FullName = request.FullName;
-        nurse.Phone = request.Phone;
+        nurse.Phone = PhoneNumberNormalizer.Normalize(request.Phone);
         nurse.Specialization = request.Specialization;
         nurse.IsActive = request.IsActive;
         nurse.Rating = request.Rating;
@@ -131,17 +147,14 @@ public class NurseService : StatusGenericHandler, INurseService
             return new List<BusySlotDto>();
         }
 
-        var dayStart = new DateTimeOffset(date.Date, TimeSpan.Zero);
-        var dayEnd = dayStart.AddDays(1);
+        // Ilgari bu yerda faqat seanslar hisobga olinardi, shuning uchun band bronli vaqt
+        // ommaviy endpoint orqali "bo'sh" deb qaytarilardi (X-8 ning qolgan qismi).
+        // Endi band vaqtlar yagona manbadan (NurseAvailabilityService) olinadi: seans + faol bron.
+        var busySlots = await _availability.GetBusySlotsAsync(nurseId, date, ct);
 
-        var busySessions = await _uow.Sessions.Query()
-            .Where(s => s.NurseId == nurseId
-                        && s.ScheduledAt >= dayStart && s.ScheduledAt < dayEnd
-                        && (s.Status == SessionStatus.Pending || s.Status == SessionStatus.Arrived || s.Status == SessionStatus.InProgress))
-            .OrderBy(s => s.ScheduledAt)
-            .ToListAsync(ct);
-
-        return _mapper.Map<List<BusySlotDto>>(busySessions);
+        return busySlots
+            .Select(slot => new BusySlotDto { From = slot.From, To = slot.To })
+            .ToList();
     }
 
     private async Task<NurseDto> ToDtoAsync(Nurse n, CancellationToken ct)
