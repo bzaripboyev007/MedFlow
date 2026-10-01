@@ -79,7 +79,9 @@ public class PrescriptionsController : ApiControllerBase
     [Authorize(Policy = PermissionCode.PrescriptionVerify)]
     public async Task<ActionResult<PrescriptionDto>> Verify(long id, [FromBody] VerifyPrescriptionRequest request, CancellationToken ct)
     {
-        var result = await _prescriptions.VerifyAsync(id, request.NurseId, ct);
+        // Hamshira faqat o'z nomidan tasdiqlaydi; boshqa hamshira Id sini faqat Admin ko'rsata oladi.
+        var nurseId = User.IsNurse() ? User.GetLinkedNurseId() ?? request.NurseId : request.NurseId;
+        var result = await _prescriptions.VerifyAsync(id, nurseId, ct);
         return FromStatus(result, _prescriptions);
     }
 }

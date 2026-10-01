@@ -85,6 +85,18 @@ public class CoursesController : ApiControllerBase
     [Authorize(Policy = PermissionCode.CourseEdit)]
     public async Task<ActionResult<CourseDto>> UpdateStatus(long id, [FromBody] UpdateCourseStatusRequest request, CancellationToken ct)
     {
+        var course = await _courses.GetByIdAsync(id, ct);
+        if (!_courses.IsValid)
+        {
+            return FromStatus(course, _courses);
+        }
+
+        // Permission yetarli emas: hamshira faqat o'ziga biriktirilgan kurs holatini o'zgartiradi.
+        if (!await CanAccessCourseAsync(course!.PatientId, course.PrimaryNurseId, ct))
+        {
+            return Forbid();
+        }
+
         var result = await _courses.UpdateStatusAsync(id, request.Status, ct);
         return FromStatus(result, _courses);
     }

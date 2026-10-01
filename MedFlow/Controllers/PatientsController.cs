@@ -47,6 +47,12 @@ public class PatientsController : ApiControllerBase
     public async Task<ActionResult<List<PatientDto>>> List([FromQuery] long? parentId, CancellationToken ct)
     {
         // Bemor faqat o'z farzandlari ro'yxatini ko'rishi mumkin (spec 5a: ota-ona faqat o'ziga bog'langan profillarga kiradi).
+        // Bemor kartasiga bog'lanmagan bemor hisobi uchun filtr null bo'lib, barcha bemorlar qaytib ketmasin.
+        if (User.IsPatient() && User.GetLinkedPatientId() is null)
+        {
+            return Forbid();
+        }
+
         var effectiveParentId = User.IsPatient() ? User.GetLinkedPatientId() : parentId;
         var result = await _patients.ListAsync(effectiveParentId, ct);
         return FromStatus(result, _patients);

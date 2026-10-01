@@ -12,4 +12,7 @@ public interface IOtpService : IStatusGeneric
 
     /// <summary>Berilgan raqam so'nggi bir necha daqiqada muvaffaqiyatli OTP orqali tasdiqlanganini tekshiradi.</summary>
     Task<bool> IsRecentlyVerifiedAsync(string phoneNumber, CancellationToken ct = default);
+
+    /// <summary>Tasdiqlangan holatni "sarflaydi": bitta tasdiqlash faqat bitta amal (ro'yxatdan o'tish yoki parol tiklash) uchun yaraydi.</summary>
+    Task ConsumeVerificationAsync(string phoneNumber, CancellationToken ct = default);
 }

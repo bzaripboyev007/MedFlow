@@ -44,7 +44,8 @@ public class PaymentService : StatusGenericHandler, IPaymentService
             return null;
         }
 
-        var serviceAmount = course.ServiceType.PricePerSession * course.TotalSessions;
+        // Faqat haqiqatda bajarilgan seanslar uchun haq olinadi ('Missed' seanslar hisobga kirmaydi).
+        var serviceAmount = course.ServiceType.PricePerSession * course.CompletedSessions;
 
         var medicineAmount = await _uow.MedicineIssues.Query()
             .Where(i => i.Session.CourseId == courseId)

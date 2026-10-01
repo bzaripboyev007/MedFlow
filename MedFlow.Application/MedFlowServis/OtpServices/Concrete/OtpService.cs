@@ -127,6 +127,24 @@ public class OtpService : StatusGenericHandler, IOtpService
             .AnyAsync(o => phoneForms.Contains(o.PhoneNumber) && o.IsUsed && o.VerifiedAt != null && o.VerifiedAt > cutoff, ct);
     }
 
+    public async Task ConsumeVerificationAsync(string phoneNumber, CancellationToken ct = default)
+    {
+        var phoneForms = PhoneNumberNormalizer.StorageForms(phoneNumber);
+
+        var verifiedCodes = await _uow.OtpCodes.Query()
+            .Where(o => phoneForms.Contains(o.PhoneNumber) && o.IsUsed && o.VerifiedAt != null)
+            .ToListAsync(ct);
+
+        // VerifiedAt bo'shatilgach IsRecentlyVerifiedAsync bu kodni qayta "tasdiqlangan" deb hisoblamaydi.
+        foreach (var otp in verifiedCodes)
+        {
+            otp.VerifiedAt = null;
+            _uow.OtpCodes.Update(otp);
+        }
+
+        await _uow.SaveChangesAsync(ct);
+    }
+
     private static string GenerateCode(int length)
     {
         var max = (int)Math.Pow(10, length);

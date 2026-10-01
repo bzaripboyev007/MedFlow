@@ -9,6 +9,8 @@ public class AuthResultDto
     public DateTimeOffset ExpiresAt { get; set; }
     public UserRole Role { get; set; }
     public string Panel { get; set; } = null!;
+    public string FullName { get; set; } = null!;
+    public string PhoneNumber { get; set; } = null!;
     public long? LinkedPatientId { get; set; }
     public int? LinkedNurseId { get; set; }
 }

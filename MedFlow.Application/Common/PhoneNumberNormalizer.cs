@@ -30,8 +30,11 @@ public static class PhoneNumberNormalizer
     public static string[] StorageForms(string? phoneNumber)
     {
         var normalized = Normalize(phoneNumber);
-        var digits = DigitsOnly(phoneNumber);
 
-        return normalized == digits ? new[] { normalized } : new[] { normalized, digits };
+        // "+"siz ko'rinish kanonik qiymatdan olinadi: 9 xonali ("901234567") kiritilganda ham
+        // eski yozuv "998901234567" bo'lib saqlangan, "901234567" emas.
+        var legacy = normalized.TrimStart('+');
+
+        return normalized == legacy ? new[] { normalized } : new[] { normalized, legacy };
     }
 }

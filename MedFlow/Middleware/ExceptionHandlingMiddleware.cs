@@ -20,6 +20,10 @@ public class ExceptionHandlingMiddleware
         {
             await _next(context);
         }
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        {
+            // Klient so'rovni o'zi uzgan (sahifa yopildi/qayta yuklandi) - bu server xatosi emas.
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Kutilmagan xatolik");

@@ -90,6 +90,13 @@ public class CourseService : StatusGenericHandler, ICourseService
             return null;
         }
 
+        // Bir xil vaqt ikki marta berilsa, hamshiraga bir vaqtda ikkita seans yozilib qolardi.
+        if (times.Distinct().Count() != times.Length)
+        {
+            AddError("Qulay vaqtlar (PreferredTimes) takrorlanmasligi kerak.");
+            return null;
+        }
+
         var sessionTimes = new List<DateTimeOffset>();
         for (var day = 0; day < request.DurationDays; day++)
         {

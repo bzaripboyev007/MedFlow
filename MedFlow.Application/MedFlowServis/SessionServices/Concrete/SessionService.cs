@@ -103,7 +103,11 @@ public class SessionService : StatusGenericHandler, ISessionService
         }
 
         course.CompletedSessions += 1;
-        if (course.CompletedSessions >= course.TotalSessions)
+
+        // Kurs ochiq seans qolmaganda yakunlanadi. Faqat "CompletedSessions >= TotalSessions"
+        // sharti bilan bitta seans 'Missed' bo'lgan kurs hech qachon 'Done' bo'lmas edi
+        // (va unga to'lov yaratib bo'lmasdi).
+        if (!await HasOpenSessionsAsync(course.Id, session.Id, ct))
         {
             course.Status = CourseStatus.Done;
         }
@@ -131,6 +135,18 @@ public class SessionService : StatusGenericHandler, ISessionService
 
         session.Status = SessionStatus.Missed;
         _uow.Sessions.Update(session);
+
+        // Oxirgi ochiq seans o'tkazib yuborilgan bo'lsa, kurs "osilib" qolmasligi uchun yopiladi.
+        if (!await HasOpenSessionsAsync(session.CourseId, session.Id, ct))
+        {
+            var course = await _uow.Courses.GetByIdAsync(session.CourseId, ct);
+            if (course is { Status: CourseStatus.Pending or CourseStatus.Active })
+            {
+                course.Status = CourseStatus.Done;
+                _uow.Courses.Update(course);
+            }
+        }
+
         await _uow.SaveChangesAsync(ct);
 
         await RescheduleRemainingAsync(session.CourseId, session.SeqNo, ct);
@@ -241,12 +257,31 @@ public class SessionService : StatusGenericHandler, ISessionService
             .Select(s => s.Id)
             .ToListAsync(ct);
 
+        var missedCount = 0;
         foreach (var id in overdueSessionIds)
         {
+            // Shu kursning oldingi seansi 'Missed' bo'lganda qolganlari suriladi, shuning uchun
+            // ro'yxat olingan paytdagi holatga ishonmay, seans hali ham muddati o'tganini qayta tekshiramiz.
+            var stillOverdue = await _uow.Sessions.Query()
+                .AnyAsync(s => s.Id == id && s.Status == SessionStatus.Pending && s.ScheduledAt < threshold, ct);
+            if (!stillOverdue)
+            {
+                continue;
+            }
+
             await MarkMissedAsync(id, ct);
+            missedCount++;
         }
 
-        return overdueSessionIds.Count;
+        return missedCount;
+    }
+
+    private Task<bool> HasOpenSessionsAsync(long courseId, long exceptSessionId, CancellationToken ct)
+    {
+        return _uow.Sessions.Query()
+            .AnyAsync(s => s.CourseId == courseId
+                           && s.Id != exceptSessionId
+                           && (s.Status == SessionStatus.Pending || s.Status == SessionStatus.Arrived || s.Status == SessionStatus.InProgress), ct);
     }
 
     private async Task RescheduleRemainingAsync(long courseId, int fromSeqNo, CancellationToken ct)

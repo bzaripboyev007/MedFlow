@@ -88,6 +88,9 @@ public class AuthService : StatusGenericHandler, IAuthService
             await _uow.Users.AddAsync(newUser, ct);
             await _uow.SaveChangesAsync(ct);
 
+            // Tasdiqlash bir martalik: shu OTP bilan keyin parolni tiklab bo'lmasin.
+            await _otpService.ConsumeVerificationAsync(phoneNumber, ct);
+
             return newUser;
         }, ct);
 
@@ -146,7 +149,10 @@ public class AuthService : StatusGenericHandler, IAuthService
 
         if (user.LockedUntil is { } lockedUntil && lockedUntil > DateTimeOffset.UtcNow)
         {
-            AddError($"Hisob vaqtincha bloklangan. {lockedUntil:HH:mm}dan keyin qayta urinib ko'ring.");
+            // Soat emas, qolgan daqiqa ko'rsatiladi: LockedUntil UTC'da saqlanadi va
+            // foydalanuvchiga mahalliy vaqtdan 5 soat farqli soat chiqib qolardi.
+            var minutesLeft = (int)Math.Ceiling((lockedUntil - DateTimeOffset.UtcNow).TotalMinutes);
+            AddError($"Hisob vaqtincha bloklangan. {minutesLeft} daqiqadan keyin qayta urinib ko'ring.");
             return null;
         }
 
@@ -163,6 +169,12 @@ public class AuthService : StatusGenericHandler, IAuthService
             await _uow.SaveChangesAsync(ct);
 
             AddError("Login yoki parol xato.");
+            return null;
+        }
+
+        if (!await IsAccountActiveAsync(user, ct))
+        {
+            AddError("Hisob faolsizlantirilgan. Administratorga murojaat qiling.");
             return null;
         }
 
@@ -199,6 +211,12 @@ public class AuthService : StatusGenericHandler, IAuthService
         }
 
         await _uow.SaveChangesAsync(ct);
+
+        if (!await IsAccountActiveAsync(user, ct))
+        {
+            AddError("Hisob faolsizlantirilgan. Administratorga murojaat qiling.");
+            return null;
+        }
 
         return await IssueTokensAsync(user, ct);
     }
@@ -250,9 +268,36 @@ public class AuthService : StatusGenericHandler, IAuthService
         user.FailedLoginCount = 0;
         user.LockedUntil = null;
         _uow.Users.Update(user);
+
+        // Parol o'zgargach eski seanslar (refresh tokenlar) yaroqsiz bo'ladi - aks holda
+        // parolni bilib olgan odam tiklashdan keyin ham tizimda qolaverardi.
+        var activeTokens = await _uow.RefreshTokens.Query()
+            .Where(r => r.UserId == user.Id && r.RevokedAt == null)
+            .ToListAsync(ct);
+        foreach (var token in activeTokens)
+        {
+            token.RevokedAt = DateTimeOffset.UtcNow;
+            _uow.RefreshTokens.Update(token);
+        }
+
         await _uow.SaveChangesAsync(ct);
 
+        // Tasdiqlash bir martalik: shu OTP bilan parolni yana tiklab bo'lmasin.
+        await _otpService.ConsumeVerificationAsync(phoneNumber, ct);
+
         return await IssueTokensAsync(user, ct);
+    }
+
+    /// <summary>Ishdan bo'shatilgan (faolsizlantirilgan) hamshira tizimga kira olmaydi.</summary>
+    private async Task<bool> IsAccountActiveAsync(User user, CancellationToken ct)
+    {
+        if (user.LinkedNurseId is not { } nurseId)
+        {
+            return true;
+        }
+
+        var nurse = await _uow.Nurses.GetByIdAsync(nurseId, ct);
+        return nurse is null || nurse.IsActive;
     }
 
     private void CopyErrorsFrom(IStatusGeneric status)
@@ -284,6 +329,8 @@ public class AuthService : StatusGenericHandler, IAuthService
             ExpiresAt = expiresAt,
             Role = user.Role,
             Panel = ToPanel(user.Role),
+            FullName = user.FullName,
+            PhoneNumber = user.PhoneNumber,
             LinkedPatientId = user.LinkedPatientId,
             LinkedNurseId = user.LinkedNurseId
         };

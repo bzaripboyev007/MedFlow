@@ -59,21 +59,27 @@ public class NurseService : StatusGenericHandler, INurseService
             IsActive = true,
             HiredAt = DateTimeOffset.UtcNow
         };
-        await _uow.Nurses.AddAsync(nurse, ct);
-        await _uow.SaveChangesAsync(ct);
-
-        var user = new User
+        // Nurse va uning login hisobi (User) bitta tranzaksiyada yaratiladi: User saqlanmay
+        // qolsa, tizimga kira olmaydigan "orphan" hamshira qolib ketmaydi (X-11 bilan bir xil naqsh).
+        await _uow.ExecuteInTransactionAsync(async () =>
         {
-            Role = request.Type == NurseType.Pediatric ? UserRole.PediatricNurse : UserRole.AdultNurse,
-            FullName = request.FullName,
-            PhoneNumber = phoneNumber,
-            PasswordHash = _passwordHasher.Hash(request.Password),
-            LinkedNurseId = nurse.Id,
-            CreatedAt = DateTimeOffset.UtcNow
-        };
-        await _uow.Users.AddAsync(user, ct);
+            await _uow.Nurses.AddAsync(nurse, ct);
+            await _uow.SaveChangesAsync(ct);
 
-        await _uow.SaveChangesAsync(ct);
+            var user = new User
+            {
+                Role = request.Type == NurseType.Pediatric ? UserRole.PediatricNurse : UserRole.AdultNurse,
+                FullName = request.FullName,
+                PhoneNumber = phoneNumber,
+                PasswordHash = _passwordHasher.Hash(request.Password),
+                LinkedNurseId = nurse.Id,
+                CreatedAt = DateTimeOffset.UtcNow
+            };
+            await _uow.Users.AddAsync(user, ct);
+            await _uow.SaveChangesAsync(ct);
+
+            return user;
+        }, ct);
 
         return await ToDtoAsync(nurse, ct);
     }
@@ -125,14 +131,40 @@ public class NurseService : StatusGenericHandler, INurseService
             return null;
         }
 
+        var phoneNumber = PhoneNumberNormalizer.Normalize(request.Phone);
+        var phoneForms = PhoneNumberNormalizer.StorageForms(request.Phone);
+
+        if (phoneNumber.Length == 0)
+        {
+            AddError("Telefon raqamini kiriting.");
+            return null;
+        }
+
+        if (await _uow.Users.Query().AnyAsync(u => phoneForms.Contains(u.PhoneNumber) && u.LinkedNurseId != id, ct))
+        {
+            AddError("Bu telefon raqami bilan foydalanuvchi allaqachon ro'yxatdan o'tgan.");
+            return null;
+        }
+
         nurse.FullName = request.FullName;
-        nurse.Phone = PhoneNumberNormalizer.Normalize(request.Phone);
+        nurse.Phone = phoneNumber;
         nurse.Specialization = request.Specialization;
         nurse.IsActive = request.IsActive;
         nurse.Rating = request.Rating;
         nurse.PricePerVisit = request.PricePerVisit;
 
         _uow.Nurses.Update(nurse);
+
+        // Hamshira tizimga telefon raqami bilan kiradi, shuning uchun login hisobi ham yangilanadi -
+        // aks holda raqam o'zgargach u hali ham eski raqam bilan kirishga majbur bo'lardi.
+        var user = await _uow.Users.Query().FirstOrDefaultAsync(u => u.LinkedNurseId == id, ct);
+        if (user is not null)
+        {
+            user.FullName = request.FullName;
+            user.PhoneNumber = phoneNumber;
+            _uow.Users.Update(user);
+        }
+
         await _uow.SaveChangesAsync(ct);
 
         return await ToDtoAsync(nurse, ct);

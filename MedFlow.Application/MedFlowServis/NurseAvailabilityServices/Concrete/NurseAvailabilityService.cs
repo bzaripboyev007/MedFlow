@@ -43,7 +43,9 @@ public class NurseAvailabilityService : INurseAvailabilityService
     public async Task<List<(DateTimeOffset From, DateTimeOffset To)>> GetBusySlotsAsync(int nurseId, DateTime date, CancellationToken ct = default)
     {
         var duration = TimeSpan.FromMinutes(SchedulingConstants.DefaultSessionDurationMinutes);
-        var dayStart = new DateTimeOffset(date.Date, TimeSpan.Zero);
+        // Query'dan "...Z" bilan kelgan sana Kind=Local bo'lib qoladi va nol offset bilan
+        // DateTimeOffset yaratishda ArgumentException (500) beradi - Kind'ni olib tashlaymiz.
+        var dayStart = new DateTimeOffset(DateTime.SpecifyKind(date.Date, DateTimeKind.Unspecified), TimeSpan.Zero);
         var dayEnd = dayStart.AddDays(1);
 
         var busyStarts = await GetBusyStartsAsync(nurseId, ct, dayStart, dayEnd);
