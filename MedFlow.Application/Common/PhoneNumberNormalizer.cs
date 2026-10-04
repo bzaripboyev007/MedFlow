@@ -18,6 +18,17 @@ public static class PhoneNumberNormalizer
         return digits.Length == 9 ? $"+998{digits}" : $"+{digits}";
     }
 
+    public const string InvalidMessage =
+        "Telefon raqami noto'g'ri. +998 dan keyin 9 ta raqam bo'lishi kerak (masalan: +998901234567).";
+
+    /// <summary>
+    /// Kanonik raqam O'zbekiston formatidami: "+998" + 9 ta raqam (jami 13 belgi).
+    /// Ilgari faqat bo'shligi tekshirilardi, shuning uchun bitta raqami tushib qolgan
+    /// "+99893481002" ham saqlanib, foydalanuvchi to'g'ri raqam bilan kira olmay qolardi.
+    /// </summary>
+    public static bool IsValidUzbek(string normalized)
+        => normalized.Length == 13 && normalized.StartsWith("+998", StringComparison.Ordinal);
+
     /// <summary>Faqat raqamlar: "998901234567" (bazadagi eski, "+"siz yozuvlar uchun).</summary>
     public static string DigitsOnly(string? phoneNumber)
         => new((phoneNumber ?? string.Empty).Where(char.IsDigit).ToArray());

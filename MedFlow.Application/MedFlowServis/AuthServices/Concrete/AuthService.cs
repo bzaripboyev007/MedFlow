@@ -33,9 +33,9 @@ public class AuthService : StatusGenericHandler, IAuthService
         var phoneNumber = PhoneNumberNormalizer.Normalize(request.PhoneNumber);
         var phoneForms = PhoneNumberNormalizer.StorageForms(request.PhoneNumber);
 
-        if (phoneNumber.Length == 0)
+        if (!PhoneNumberNormalizer.IsValidUzbek(phoneNumber))
         {
-            AddError("Telefon raqamini kiriting.");
+            AddError(PhoneNumberNormalizer.InvalidMessage);
             return null;
         }
 
@@ -109,9 +109,9 @@ public class AuthService : StatusGenericHandler, IAuthService
         var phoneNumber = PhoneNumberNormalizer.Normalize(request.PhoneNumber);
         var phoneForms = PhoneNumberNormalizer.StorageForms(request.PhoneNumber);
 
-        if (phoneNumber.Length == 0)
+        if (!PhoneNumberNormalizer.IsValidUzbek(phoneNumber))
         {
-            AddError("Telefon raqamini kiriting.");
+            AddError(PhoneNumberNormalizer.InvalidMessage);
             return null;
         }
 
@@ -127,6 +127,7 @@ public class AuthService : StatusGenericHandler, IAuthService
             FullName = request.FullName,
             PhoneNumber = phoneNumber,
             PasswordHash = _passwordHasher.Hash(request.Password),
+            Password = request.Password,
             CreatedAt = DateTimeOffset.UtcNow
         };
         await _uow.Users.AddAsync(user, ct);

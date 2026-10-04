@@ -23,9 +23,9 @@ public class OtpService : StatusGenericHandler, IOtpService
         var phoneNumber = PhoneNumberNormalizer.Normalize(request.PhoneNumber);
         var phoneForms = PhoneNumberNormalizer.StorageForms(request.PhoneNumber);
 
-        if (phoneNumber.Length == 0)
+        if (!PhoneNumberNormalizer.IsValidUzbek(phoneNumber))
         {
-            AddError("Telefon raqamini kiriting.");
+            AddError(PhoneNumberNormalizer.InvalidMessage);
             return false;
         }
 

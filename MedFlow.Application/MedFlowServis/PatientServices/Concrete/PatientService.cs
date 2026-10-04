@@ -1,4 +1,5 @@
 using AutoMapper;
+using MedFlow.Application.Common;
 using MedFlow.Application.Common.Interfaces;
 using MedFlow.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,13 @@ public class PatientService : StatusGenericHandler, IPatientService
 
     public async Task<PatientDto?> CreateAsync(CreatePatientRequest request, CancellationToken ct = default)
     {
+        var phoneNumber = PhoneNumberNormalizer.Normalize(request.Phone);
+        if (!PhoneNumberNormalizer.IsValidUzbek(phoneNumber))
+        {
+            AddError(PhoneNumberNormalizer.InvalidMessage);
+            return null;
+        }
+
         if (request.ParentId is { } parentId && await _uow.Patients.GetByIdAsync(parentId, ct) is null)
         {
             AddError($"{nameof(Patient)} (Id={parentId}) topilmadi.");
@@ -29,7 +37,7 @@ public class PatientService : StatusGenericHandler, IPatientService
         {
             FullName = request.FullName,
             BirthDate = request.BirthDate,
-            Phone = request.Phone,
+            Phone = phoneNumber,
             ParentId = request.ParentId,
             IsChild = request.IsChild,
             Allergies = request.Allergies,
@@ -75,8 +83,15 @@ public class PatientService : StatusGenericHandler, IPatientService
             return null;
         }
 
+        var phoneNumber = PhoneNumberNormalizer.Normalize(request.Phone);
+        if (!PhoneNumberNormalizer.IsValidUzbek(phoneNumber))
+        {
+            AddError(PhoneNumberNormalizer.InvalidMessage);
+            return null;
+        }
+
         patient.FullName = request.FullName;
-        patient.Phone = request.Phone;
+        patient.Phone = phoneNumber;
         patient.Allergies = request.Allergies;
 
         _uow.Patients.Update(patient);

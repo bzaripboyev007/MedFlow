@@ -34,9 +34,9 @@ public class NurseService : StatusGenericHandler, INurseService
         var phoneNumber = PhoneNumberNormalizer.Normalize(request.Phone);
         var phoneForms = PhoneNumberNormalizer.StorageForms(request.Phone);
 
-        if (phoneNumber.Length == 0)
+        if (!PhoneNumberNormalizer.IsValidUzbek(phoneNumber))
         {
-            AddError("Telefon raqamini kiriting.");
+            AddError(PhoneNumberNormalizer.InvalidMessage);
             return null;
         }
 
@@ -134,9 +134,9 @@ public class NurseService : StatusGenericHandler, INurseService
         var phoneNumber = PhoneNumberNormalizer.Normalize(request.Phone);
         var phoneForms = PhoneNumberNormalizer.StorageForms(request.Phone);
 
-        if (phoneNumber.Length == 0)
+        if (!PhoneNumberNormalizer.IsValidUzbek(phoneNumber))
         {
-            AddError("Telefon raqamini kiriting.");
+            AddError(PhoneNumberNormalizer.InvalidMessage);
             return null;
         }
 
