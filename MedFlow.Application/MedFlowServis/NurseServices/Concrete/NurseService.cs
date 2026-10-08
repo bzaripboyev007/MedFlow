@@ -112,6 +112,93 @@ public class NurseService : StatusGenericHandler, INurseService
         return result;
     }
 
+    public async Task<PagedResultDto<NurseDto>> SortFilterAsync(NurseSortFilterRequest request, CancellationToken ct = default)
+    {
+        var page = Math.Max(request.Page, 1);
+        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+
+        var query = _uow.Nurses.Query();
+
+        var search = request.Search?.Trim();
+        if (!string.IsNullOrEmpty(search))
+        {
+            var pattern = search.ToLower();
+            query = query.Where(n => n.FullName.ToLower().Contains(pattern));
+        }
+
+        if (request.Type is { } type) query = query.Where(n => n.Type == type);
+        if (request.Gender is { } gender) query = query.Where(n => n.Gender == gender);
+        if (request.IsActive is { } isActive) query = query.Where(n => n.IsActive == isActive);
+
+        query = (request.SortBy, request.SortDesc) switch
+        {
+            (NurseSortField.ExperienceStartDate, false) => query.OrderBy(n => n.ExperienceStartDate).ThenBy(n => n.Id),
+            (NurseSortField.ExperienceStartDate, true) => query.OrderByDescending(n => n.ExperienceStartDate).ThenBy(n => n.Id),
+            (NurseSortField.Rating, false) => query.OrderBy(n => n.Rating).ThenBy(n => n.Id),
+            (NurseSortField.Rating, true) => query.OrderByDescending(n => n.Rating).ThenBy(n => n.Id),
+            (NurseSortField.PricePerVisit, false) => query.OrderBy(n => n.PricePerVisit).ThenBy(n => n.Id),
+            (NurseSortField.PricePerVisit, true) => query.OrderByDescending(n => n.PricePerVisit).ThenBy(n => n.Id),
+            (NurseSortField.HiredAt, false) => query.OrderBy(n => n.HiredAt).ThenBy(n => n.Id),
+            (NurseSortField.HiredAt, true) => query.OrderByDescending(n => n.HiredAt).ThenBy(n => n.Id),
+            (_, true) => query.OrderByDescending(n => n.FullName).ThenBy(n => n.Id),
+            _ => query.OrderBy(n => n.FullName).ThenBy(n => n.Id)
+        };
+
+        var totalCount = await query.CountAsync(ct);
+        var nurses = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        // Yakunlangan kurslar soni sahifadagi barcha hamshiralar uchun bitta so'rovda olinadi.
+        var ids = nurses.Select(n => n.Id).ToList();
+        var completedCounts = await _uow.Courses.Query()
+            .Where(c => ids.Contains(c.PrimaryNurseId) && c.Status == CourseStatus.Done)
+            .GroupBy(c => c.PrimaryNurseId)
+            .Select(g => new { NurseId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.NurseId, x => x.Count, ct);
+
+        var items = _mapper.Map<List<NurseDto>>(nurses);
+        foreach (var dto in items)
+        {
+            dto.CompletedCoursesCount = completedCounts.GetValueOrDefault(dto.Id);
+        }
+
+        return new PagedResultDto<NurseDto>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    public async Task<bool> ChangePasswordAsync(int nurseId, string newPassword, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < AuthConstants.MinPasswordLength)
+        {
+            AddError($"Parol kamida {AuthConstants.MinPasswordLength} belgidan iborat bo'lishi kerak.");
+            return false;
+        }
+
+        if (await _uow.Nurses.GetByIdAsync(nurseId, ct) is null)
+        {
+            AddError($"{nameof(Nurse)} (Id={nurseId}) topilmadi.");
+            return false;
+        }
+
+        var user = await _uow.Users.Query().FirstOrDefaultAsync(u => u.LinkedNurseId == nurseId, ct);
+        if (user is null)
+        {
+            AddError("Bu hamshiraning tizimga kirish hisobi yo'q.");
+            return false;
+        }
+
+        await UserPasswordReset.ApplyAsync(_uow, _passwordHasher, user, newPassword, ct);
+        await _uow.SaveChangesAsync(ct);
+        return true;
+    }
+
     public async Task<List<PublicNurseDto>> ListPublicAsync(NurseType? type, Gender? gender, CancellationToken ct = default)
     {
         var query = _uow.Nurses.Query().Where(n => n.IsActive);

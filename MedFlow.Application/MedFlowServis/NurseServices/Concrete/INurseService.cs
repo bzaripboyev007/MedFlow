@@ -1,3 +1,4 @@
+using MedFlow.Application.Common;
 using MedFlow.Domain.Enums;
 using StatusGeneric;
 
@@ -8,6 +9,10 @@ public interface INurseService : IStatusGeneric
     Task<NurseDto?> CreateAsync(CreateNurseRequest request, CancellationToken ct = default);
     Task<NurseDto?> GetByIdAsync(int id, CancellationToken ct = default);
     Task<List<NurseDto>> ListAsync(NurseType? type, Gender? gender, CancellationToken ct = default);
+    Task<PagedResultDto<NurseDto>> SortFilterAsync(NurseSortFilterRequest request, CancellationToken ct = default);
+
+    /// <summary>Hamshiraning login hisobi parolini almashtiradi va uning barcha refresh tokenlarini bekor qiladi.</summary>
+    Task<bool> ChangePasswordAsync(int nurseId, string newPassword, CancellationToken ct = default);
 
     /// <summary>Bron sahifasi uchun faol hamshiralar ro'yxati (autentifikatsiyasiz ochiq).</summary>
     Task<List<PublicNurseDto>> ListPublicAsync(NurseType? type, Gender? gender, CancellationToken ct = default);

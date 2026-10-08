@@ -10,11 +10,13 @@ namespace MedFlow.Application.MedFlowServis.PatientServices.Concrete;
 public class PatientService : StatusGenericHandler, IPatientService
 {
     private readonly IUnitOfWork _uow;
+    private readonly IPasswordHasher _passwordHasher;
     private readonly IMapper _mapper;
 
-    public PatientService(IUnitOfWork uow, IMapper mapper)
+    public PatientService(IUnitOfWork uow, IPasswordHasher passwordHasher, IMapper mapper)
     {
         _uow = uow;
+        _passwordHasher = passwordHasher;
         _mapper = mapper;
     }
 
@@ -74,6 +76,50 @@ public class PatientService : StatusGenericHandler, IPatientService
         return _mapper.Map<List<PatientDto>>(patients);
     }
 
+    public async Task<PagedResultDto<PatientDto>> SortFilterAsync(PatientSortFilterRequest request, CancellationToken ct = default)
+    {
+        var page = Math.Max(request.Page, 1);
+        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+
+        var query = _uow.Patients.Query();
+
+        var search = request.Search?.Trim();
+        if (!string.IsNullOrEmpty(search))
+        {
+            var pattern = search.ToLower();
+            query = query.Where(p => p.FullName.ToLower().Contains(pattern));
+        }
+
+        if (request.IsChild is { } isChild)
+        {
+            query = query.Where(p => p.IsChild == isChild);
+        }
+
+        query = (request.SortBy, request.SortDesc) switch
+        {
+            (PatientSortField.BirthDate, false) => query.OrderBy(p => p.BirthDate).ThenBy(p => p.Id),
+            (PatientSortField.BirthDate, true) => query.OrderByDescending(p => p.BirthDate).ThenBy(p => p.Id),
+            (PatientSortField.CreatedAt, false) => query.OrderBy(p => p.CreatedAt).ThenBy(p => p.Id),
+            (PatientSortField.CreatedAt, true) => query.OrderByDescending(p => p.CreatedAt).ThenBy(p => p.Id),
+            (_, true) => query.OrderByDescending(p => p.FullName).ThenBy(p => p.Id),
+            _ => query.OrderBy(p => p.FullName).ThenBy(p => p.Id)
+        };
+
+        var totalCount = await query.CountAsync(ct);
+        var patients = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        return new PagedResultDto<PatientDto>
+        {
+            Items = _mapper.Map<List<PatientDto>>(patients),
+            TotalCount = totalCount,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
     public async Task<PatientDto?> UpdateAsync(long id, UpdatePatientRequest request, CancellationToken ct = default)
     {
         var patient = await _uow.Patients.GetByIdAsync(id, ct);
@@ -98,6 +144,33 @@ public class PatientService : StatusGenericHandler, IPatientService
         await _uow.SaveChangesAsync(ct);
 
         return _mapper.Map<PatientDto>(patient);
+    }
+
+    public async Task<bool> ChangePasswordAsync(long patientId, string newPassword, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < AuthConstants.MinPasswordLength)
+        {
+            AddError($"Parol kamida {AuthConstants.MinPasswordLength} belgidan iborat bo'lishi kerak.");
+            return false;
+        }
+
+        if (await _uow.Patients.GetByIdAsync(patientId, ct) is null)
+        {
+            AddError($"{nameof(Patient)} (Id={patientId}) topilmadi.");
+            return false;
+        }
+
+        var user = await _uow.Users.Query().FirstOrDefaultAsync(u => u.LinkedPatientId == patientId, ct);
+        if (user is null)
+        {
+            // Masalan, ota-ona orqali qo'shilgan bola profilining o'z login hisobi bo'lmaydi.
+            AddError("Bu bemorning tizimga kirish hisobi yo'q.");
+            return false;
+        }
+
+        await UserPasswordReset.ApplyAsync(_uow, _passwordHasher, user, newPassword, ct);
+        await _uow.SaveChangesAsync(ct);
+        return true;
     }
 
     public async Task<bool> IsSelfOrChildAsync(long callerPatientId, long targetPatientId, CancellationToken ct = default)

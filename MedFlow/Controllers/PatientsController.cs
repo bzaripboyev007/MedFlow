@@ -1,7 +1,9 @@
+using MedFlow.Application.Common;
 using MedFlow.Application.Common.Permissions;
 using MedFlow.Application.MedFlowServis.PatientServices;
 using MedFlow.Application.MedFlowServis.PatientServices.Concrete;
 using MedFlow.Auth;
+using MedFlow.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -56,6 +58,39 @@ public class PatientsController : ApiControllerBase
         var effectiveParentId = User.IsPatient() ? User.GetLinkedPatientId() : parentId;
         var result = await _patients.ListAsync(effectiveParentId, ct);
         return FromStatus(result, _patients);
+    }
+
+    /// <summary>Barcha bemorlar (F.I.O. bo'yicha alifbo tartibida). Faqat xodimlar uchun.</summary>
+    [HttpGet]
+    [Authorize(Roles = RoleGroups.Staff)]
+    public async Task<ActionResult<List<PatientDto>>> GetList(CancellationToken ct)
+    {
+        var result = await _patients.ListAsync(null, ct);
+        return FromStatus(result, _patients);
+    }
+
+    /// <summary>Bemorlar paneli: F.I.O. qidiruvi, toifa filtri, saralash va sahifalash. Faqat xodimlar uchun.</summary>
+    [HttpPost]
+    [Authorize(Roles = RoleGroups.Staff)]
+    public async Task<ActionResult<PagedResultDto<PatientDto>>> SortFilter([FromBody] PatientSortFilterRequest request, CancellationToken ct)
+    {
+        var result = await _patients.SortFilterAsync(request, ct);
+        return FromStatus(result, _patients);
+    }
+
+    /// <summary>Admin bemor parolini almashtiradi; bemorning eski sessiyalari yopiladi.</summary>
+    [HttpPut("{id:long}")]
+    [Authorize(Roles = RoleGroups.Admin)]
+    public async Task<IActionResult> ChangePassword(long id, [FromBody] ChangePatientPasswordRequest request, CancellationToken ct)
+    {
+        await _patients.ChangePasswordAsync(id, request.NewPassword, ct);
+        if (!_patients.IsValid)
+        {
+            _patients.CopyErrorsToModelState(ModelState);
+            return ValidationProblem(ModelState);
+        }
+
+        return NoContent();
     }
 
     [HttpPut("{id:long}")]

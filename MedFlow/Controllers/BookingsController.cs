@@ -48,6 +48,15 @@ public class BookingsController : ApiControllerBase
         return FromStatus(result, _bookings);
     }
 
+    /// <summary>Kunlik tushum (bekor qilingan bronlarsiz). Sana "yyyy-MM-dd"; berilmasa - bugun. Faqat Admin.</summary>
+    [HttpGet]
+    [Authorize(Roles = RoleGroups.Admin)]
+    public async Task<ActionResult<BookingRevenueDto>> Revenue([FromQuery] string? date, CancellationToken ct)
+    {
+        var result = await _bookings.GetRevenueAsync(date, ct);
+        return FromStatus(result, _bookings);
+    }
+
     [HttpGet("{id:long}")]
     [Authorize(Policy = PermissionCode.BookingView)]
     public async Task<ActionResult<BookingDto>> GetById(long id, CancellationToken ct)

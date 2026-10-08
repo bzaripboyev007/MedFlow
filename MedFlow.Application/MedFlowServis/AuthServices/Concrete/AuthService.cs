@@ -127,7 +127,7 @@ public class AuthService : StatusGenericHandler, IAuthService
             FullName = request.FullName,
             PhoneNumber = phoneNumber,
             PasswordHash = _passwordHasher.Hash(request.Password),
-            Password = request.Password,
+            //Password = request.Password,
             CreatedAt = DateTimeOffset.UtcNow
         };
         await _uow.Users.AddAsync(user, ct);

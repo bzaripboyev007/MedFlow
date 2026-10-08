@@ -155,6 +155,50 @@ public class BookingService : StatusGenericHandler, IBookingService
         return _mapper.Map<List<BookingDto>>(bookings);
     }
 
+    public async Task<BookingRevenueDto?> GetRevenueAsync(string? date, CancellationToken ct = default)
+    {
+        DateOnly day;
+        if (string.IsNullOrWhiteSpace(date))
+        {
+            day = DateOnly.FromDateTime(DateTime.Now);
+        }
+        else if (!DateOnly.TryParseExact(date.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out day))
+        {
+            AddError("Sana 'yyyy-MM-dd' formatida bo'lishi kerak.");
+            return null;
+        }
+
+        // BOOKING_DATE matn ko'rinishida ("yyyy-MM-dd") saqlanadi.
+        var dayText = day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+        var bookings = await _uow.Bookings.Query()
+            .Where(b => b.BookingDate == dayText && b.Status != BookingConstants.StatusCancelled)
+            .OrderBy(b => b.BookingTime)
+            .ThenBy(b => b.Id)
+            .Select(b => new BookingRevenueItemDto
+            {
+                BookingId = b.Id,
+                FullName = b.FullName,
+                ServiceType = b.ServiceType,
+                TotalPrice = b.TotalPrice
+            })
+            .ToListAsync(ct);
+
+        // Bron faqat jami narxni saqlaydi: yo'l haqi xizmat turidan, xizmat haqi ayirmadan topiladi.
+        var homeVisitTotal = bookings
+            .Where(b => b.ServiceType == BookingConstants.ServiceTypeHome)
+            .Sum(b => Math.Min(BookingConstants.HomeVisitFee, b.TotalPrice));
+        var total = bookings.Sum(b => b.TotalPrice);
+
+        return new BookingRevenueDto
+        {
+            ServiceTotal = total - homeVisitTotal,
+            HomeVisitTotal = homeVisitTotal,
+            Total = total,
+            Items = bookings
+        };
+    }
+
     public async Task<BookingDto?> GetByIdAsync(long id, CancellationToken ct = default)
     {
         var booking = await _uow.Bookings.Query()
