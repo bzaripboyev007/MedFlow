@@ -25,4 +25,13 @@ public class DashboardController : ApiControllerBase
         var result = await _dashboard.GetSummaryAsync(date, ct);
         return FromStatus(result, _dashboard);
     }
+
+    /// <summary>Haftalik grafik: dushanbadan yakshanbagacha har kungi bronlar soni (bekor qilinganlarsiz).
+    /// Sana berilsa - shu sana tushgan hafta, berilmasa - joriy hafta.</summary>
+    [HttpGet]
+    public async Task<ActionResult<List<WeeklyStatDto>>> WeeklyStats([FromQuery] string? date, CancellationToken ct)
+    {
+        var result = await _dashboard.GetWeeklyStatsAsync(date, ct);
+        return FromStatus(result, _dashboard);
+    }
 }
