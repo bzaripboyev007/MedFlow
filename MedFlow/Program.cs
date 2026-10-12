@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Minio;
 
 TypeDescriptor.AddAttributes(typeof(DateOnly), new TypeConverterAttribute(typeof(DateOnlyTypeConverter)));
 
@@ -58,6 +59,13 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod();
     });
 });
+
+var minioConfig = builder.Configuration.GetSection("Minio");
+builder.Services.AddMinio(client => client
+    .WithEndpoint(minioConfig["Endpoint"])
+    .WithCredentials(minioConfig["AccessKey"], minioConfig["SecretKey"])
+    .WithSSL(bool.Parse(minioConfig["UseSSL"]!))
+    .Build());
 
 builder.Services.AddDataLayerRepository(builder.Configuration);
 builder.Services.AddInfrastructure(builder.Configuration);

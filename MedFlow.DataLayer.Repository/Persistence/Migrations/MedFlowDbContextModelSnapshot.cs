@@ -816,6 +816,11 @@ namespace MedFlow.DataLayer.Repository.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("LOCKED_UNTIL");
 
+                    b.Property<string>("Password")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("PASSWORD");
+
                     b.Property<string>("PasswordHash")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")

@@ -14,6 +14,9 @@ public static class UserPasswordReset
     {
         user.PasswordHash = passwordHasher.Hash(newPassword);
 
+        // PASSWORD ustuni varchar(30): undan uzun parol sig'maydi, shuning uchun bo'sh qoldiriladi.
+        user.Password = newPassword.Length <= 30 ? newPassword : null;
+
         // Yangi parol bilan darhol kira olsin: noto'g'ri urinishlar tufayli qo'yilgan blok ham olinadi.
         user.FailedLoginCount = 0;
         user.LockedUntil = null;

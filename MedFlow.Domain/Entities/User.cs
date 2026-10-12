@@ -34,6 +34,10 @@ public partial class User : IHaveIdProp<long>
     [StringLength(200)]
     public string PasswordHash { get; set; }
 
+    [Column("PASSWORD")]
+    [StringLength(30)]
+    public string Password { get; set; }
+
     [Column("LINKED_PATIENT_ID")]
     [Precision(19)]
     public long? LinkedPatientId { get; set; }
